@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Box,
   Camera,
+  X,
 } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 
@@ -54,9 +55,9 @@ export default function App() {
     // 1. Initialize the Telegram bridge
     if (window.Telegram?.WebApp) {
       const tg = window.Telegram.WebApp;
-      tg.ready(); // Critical for native hardware access 
+      tg.ready(); // Critical for native hardware access
       tg.expand(); // Forces full-screen mode [cite: 164, 180]
-      tg.setHeaderColor('#F9F8F6'); // Matches your premium off-white branding [cite: 32]
+      tg.setHeaderColor("#F9F8F6"); // Matches your premium off-white branding [cite: 32]
     }
 
     // 2. Pre-flight check to warm up browser media permissions
@@ -67,13 +68,22 @@ export default function App() {
         console.error("Initial camera handshake failed:", e);
       }
     };
-    
+
     initCameraAccess();
   }, []);
   const [activeTab, setActiveTab] = useState<
     "Upload" | "Size" | "Frame" | "Rooms" | null
   >(null);
   const [isARMode, setIsARMode] = useState(false);
+  const [showARInstructions, setShowARInstructions] = useState(false);
+  const [hasSeenARInstructions, setHasSeenARInstructions] = useState(false);
+
+  useEffect(() => {
+    if (isARMode && !hasSeenARInstructions) {
+      setShowARInstructions(true);
+      setHasSeenARInstructions(true);
+    }
+  }, [isARMode, hasSeenARInstructions]);
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
 
@@ -89,6 +99,8 @@ export default function App() {
       const dataUrl = await htmlToImage.toPng(node, {
         quality: 0.9,
         backgroundColor: isARMode ? undefined : "#F9F8F6",
+        fontEmbedCSS: "",
+        skipFonts: true,
       });
 
       if (navigator.share) {
@@ -126,8 +138,8 @@ export default function App() {
   const [rotation, setRotation] = useState({ rx: 8, ry: -22, rz: -2 });
   const [isDragging, setIsDragging] = useState(false);
   const [transformMode, setTransformMode] = useState<
-    "translate" | "rotate" | "scale"
-  >("translate");
+    "move" | "rotate" | "scale"
+  >("move");
   const [customScale, setCustomScale] = useState(1);
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== "undefined" ? window.innerWidth : 1024,
@@ -201,7 +213,7 @@ export default function App() {
     const dy = e.clientY - dragRef.current.startY;
 
     if (isARMode) {
-      if (transformMode === "translate") {
+      if (transformMode === "move") {
         const factor = windowWidth < 600 ? 0.8 : 1.2;
         setDragPos({
           x: dragRef.current.initialX + dx * factor,
@@ -356,7 +368,10 @@ export default function App() {
               }}
             >
               {/* Artwork / Canvas bounds */}
-              <div className="w-full h-full relative bg-[#E8E6E1] overflow-hidden flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
+              <div
+                className="w-full h-full relative bg-[#E8E6E1] overflow-hidden flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]"
+                style={{ containerType: "inline-size" }}
+              >
                 {imageSrc ? (
                   <img
                     src={imageSrc || undefined}
@@ -365,17 +380,23 @@ export default function App() {
                     draggable={false}
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-[#80A195] via-[#E2D5C4] to-[#B2C2C1] opacity-90 flex items-center justify-center p-4">
+                  <div className="absolute inset-0 bg-gradient-to-br from-[#80A195] via-[#E2D5C4] to-[#B2C2C1] opacity-90 flex items-center justify-center p-[5cqi]">
                     <div
-                      className="bg-white/80 p-8 text-center"
+                      className="bg-white/80 p-[5cqi] text-center flex flex-col justify-center items-center"
                       style={{ width: "80%", height: "80%" }}
                     >
-                      <p className="text-neutral-800 text-3xl font-light tracking-tight mb-4 leading-tight">
+                      <p
+                        className="text-neutral-800 font-light tracking-tight mb-[2cqi] leading-[1.1]"
+                        style={{ fontSize: "9cqi" }}
+                      >
                         Upload
                         <br />
                         an image
                       </p>
-                      <p className="text-neutral-600 text-sm font-light">
+                      <p
+                        className="text-neutral-600 font-light leading-[1.3]"
+                        style={{ fontSize: "4.5cqi" }}
+                      >
                         and see it
                         <br />
                         on your wall
@@ -571,6 +592,81 @@ export default function App() {
                 />
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* AR Transform Mode Toggle */}
+      {isARMode && !isCapturing && (
+        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-white/90 backdrop-blur-md rounded-full shadow-lg border border-white/20 flex p-1 z-30 pointer-events-auto">
+          {(["move", "rotate", "scale"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setTransformMode(mode)}
+              className={`px-4 py-2 rounded-full text-xs font-bold uppercase tracking-widest transition-colors ${
+                transformMode === mode
+                  ? "bg-[#6B7B62] text-white"
+                  : "text-[#1A1A1A] hover:bg-neutral-100"
+              }`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* AR Instructions Overlay */}
+      {showARInstructions && isARMode && !isCapturing && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm pointer-events-auto">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl relative animate-in zoom-in-95 duration-300">
+            <button
+              onClick={() => setShowARInstructions(false)}
+              className="absolute top-4 right-4 text-neutral-400 hover:text-neutral-800 transition-colors"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-xl font-bold mb-4 text-[#1A1A1A]">
+              AR Controls
+            </h2>
+            <ul className="space-y-4 mb-8 text-sm text-neutral-600">
+              <li className="flex items-start gap-3">
+                <div className="p-2 bg-neutral-100 rounded-lg shrink-0 mt-0.5">
+                  <Move size={16} />
+                </div>
+                <div>
+                  <span className="font-bold text-neutral-800 block">Move</span>{" "}
+                  Drag on the screen to move the artwork across your wall.
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="p-2 bg-neutral-100 rounded-lg shrink-0 mt-0.5">
+                  <Box size={16} />
+                </div>
+                <div>
+                  <span className="font-bold text-neutral-800 block">
+                    Rotate
+                  </span>{" "}
+                  Select "ROTATE" at the top and drag to tilt the artwork.
+                </div>
+              </li>
+              <li className="flex items-start gap-3">
+                <div className="p-2 bg-neutral-100 rounded-lg shrink-0 mt-0.5">
+                  <Maximize size={16} />
+                </div>
+                <div>
+                  <span className="font-bold text-neutral-800 block">
+                    Scale
+                  </span>{" "}
+                  Select "SCALE" at the top and drag to adjust its overall size.
+                </div>
+              </li>
+            </ul>
+            <button
+              onClick={() => setShowARInstructions(false)}
+              className="w-full py-3 bg-[#1A1A1A] text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-black transition-colors"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
