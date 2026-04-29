@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Georgia:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-serif-custom: 'Georgia', serif;
+}
+
+body {
+  background-color: #F9F8F6;
+  color: #1A1A1A;
+  font-family: 'Helvetica Neue', Arial, sans-serif;
+}
