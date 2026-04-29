@@ -271,7 +271,7 @@ export default function App() {
   return (
     <div
       id="capture-container"
-      className={`min-h-screen w-full relative overflow-hidden font-sans transition-colors duration-1000 ${
+      className={`h-[100dvh] w-full relative overflow-hidden font-sans transition-colors duration-1000 ${
         isARMode ? "bg-black" : "bg-[#F9F8F6]"
       }`}
     >
@@ -288,9 +288,9 @@ export default function App() {
 
       {/* Header: Logo & Units */}
       {!isCapturing && (
-        <header className="absolute top-0 left-0 w-full p-8 flex justify-between items-start z-20 pointer-events-none">
+        <header className="absolute top-0 left-0 w-full p-6 sm:p-8 flex justify-between items-start z-20 pointer-events-none">
           <div className="flex flex-col pointer-events-auto">
-            <h1 className="font-serif-custom text-3xl font-light italic">
+            <h1 className="font-serif-custom text-2xl sm:text-3xl font-light italic">
               Art Wall AR
             </h1>
           </div>
@@ -299,7 +299,7 @@ export default function App() {
 
       {/* 3D Scene / AR Canvas */}
       <main
-        className="absolute inset-0 flex items-center justify-center p-8 mt-[-5%] overflow-hidden"
+        className="absolute inset-0 flex items-center justify-center p-4 sm:p-8 mt-[-5%] overflow-hidden touch-none"
         style={{ perspective: "1200px" }}
         onClick={() => activeTab && setActiveTab(null)}
       >
@@ -308,7 +308,7 @@ export default function App() {
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
           onPointerCancel={handlePointerUp}
-          className={`relative ${isDragging ? "" : "transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]"} cursor-grab active:cursor-grabbing`}
+          className={`relative ${isDragging ? "" : "transition-all duration-700 ease-[cubic-bezier(0.2,0.8,0.2,1)]"} cursor-grab active:cursor-grabbing touch-none`}
           style={{
             transformStyle: "preserve-3d",
             transform: isARMode
