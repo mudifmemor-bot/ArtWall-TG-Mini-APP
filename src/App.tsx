@@ -49,6 +49,14 @@ const CustomSlider = ({ label, value, unit, min, max, onChange }: any) => {
   );
 };
 
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: any;
+    };
+  }
+}
+
 export default function App() {
   // PASTE THIS HERE (Immediately after the component starts)
   useEffect(() => {
@@ -128,6 +136,7 @@ export default function App() {
 
   // Configuration State
   const [frameColor, setFrameColor] = useState("#000000");
+  const [frameMaterial, setFrameMaterial] = useState<"solid" | "wood" | "metal" | "pattern">("solid");
   const [frameThickness, setFrameThickness] = useState(2);
   const [mattingThickness, setMattingThickness] = useState(0);
   const [artworkWidth, setArtworkWidth] = useState(50);
@@ -272,24 +281,16 @@ export default function App() {
     }
   };
 
-  // Dynamic Shadow Extrusion Calculation
-  const getExtrusionShadow = () => {
-    if (isARMode) return "0 20px 50px -10px rgba(0,0,0,0.3)";
-
-    const isWhite = frameColor === "#FFFFFF";
-    const edgeColor = isWhite
-      ? "#d1d1d1"
-      : frameColor === "#000000"
-        ? "#111111"
-        : frameColor;
-    const depth = 15;
-
-    let shadow = "";
-    for (let i = 1; i <= depth; i++) {
-      shadow += `${-i}px ${i}px 0 ${edgeColor}, `;
+  const getMaterialStyle = () => {
+    let background = frameColor;
+    if (frameMaterial === "wood") {
+      background = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.04 0.4' numOctaves='3'/%3E%3CfeColorMatrix type='matrix' values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100' height='100' fill='${encodeURIComponent(frameColor)}'/%3E%3Crect width='100' height='100' filter='url(%23f)' mix-blend-mode='multiply'/%3E%3C/svg%3E")`;
+    } else if (frameMaterial === "metal") {
+      background = `linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 20%, rgba(0,0,0,0.2) 50%, rgba(255,255,255,0.1) 80%, rgba(0,0,0,0.5) 100%), ${frameColor}`;
+    } else if (frameMaterial === "pattern") {
+      background = `url("data:image/svg+xml,%3Csvg width='12' height='12' viewBox='0 0 12 12' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.2' fill-rule='evenodd'%3E%3Ccircle cx='2' cy='2' r='2'/%3E%3C/g%3E%3C/svg%3E"), ${frameColor}`;
     }
-    shadow += `-15px 15px 30px rgba(0,0,0,0.1), -40px 40px 60px rgba(0,0,0,0.05)`;
-    return shadow;
+    return background;
   };
 
   // Convert logical dimensions to display pixels (scaling factor)
@@ -355,11 +356,63 @@ export default function App() {
           <div
             className="w-full h-full relative transition-all duration-500 box-border"
             style={{
-              backgroundColor: frameColor,
+              background: getMaterialStyle(),
               padding: `${frameThickness * (displayScale / 2)}px`,
-              boxShadow: getExtrusionShadow(),
+              transformStyle: "preserve-3d",
             }}
           >
+            {/* 3D Frame Faces */}
+            <div
+              className="absolute inset-0 pointer-events-none"
+              style={{ transformStyle: "preserve-3d" }}
+            >
+              {/* Back face */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background: getMaterialStyle(),
+                  transform: "translateZ(-20px)",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+                }}
+              />
+              {/* Top face */}
+              <div
+                className="absolute left-0 top-0 w-full origin-top brightness-[0.8]"
+                style={{
+                  background: getMaterialStyle(),
+                  height: "20px",
+                  transform: "rotateX(-90deg)",
+                }}
+              />
+              {/* Bottom face */}
+              <div
+                className="absolute left-0 bottom-0 w-full origin-bottom brightness-[0.2]"
+                style={{
+                  background: getMaterialStyle(),
+                  height: "20px",
+                  transform: "rotateX(90deg)",
+                }}
+              />
+              {/* Left face */}
+              <div
+                className="absolute left-0 top-0 h-full origin-left brightness-[0.6]"
+                style={{
+                  background: getMaterialStyle(),
+                  width: "20px",
+                  transform: "rotateY(90deg)",
+                }}
+              />
+              {/* Right face */}
+              <div
+                className="absolute right-0 top-0 h-full origin-right brightness-[0.4]"
+                style={{
+                  background: getMaterialStyle(),
+                  width: "20px",
+                  transform: "rotateY(-90deg)",
+                }}
+              />
+            </div>
+
             {/* Matting */}
             <div
               className="w-full h-full bg-white transition-all duration-300 relative overflow-hidden shadow-inner"
@@ -514,6 +567,29 @@ export default function App() {
                         style={{ backgroundColor: c.hex }}
                       />
                     ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-sm font-medium text-neutral-800 mb-3 block">
+                    Frame Material
+                  </span>
+                  <div className="flex gap-2">
+                    {(["solid", "wood", "metal", "pattern"] as const).map(
+                      (mat) => (
+                        <button
+                          key={mat}
+                          onClick={() => setFrameMaterial(mat)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold uppercase tracking-widest transition-colors ${
+                            frameMaterial === mat
+                              ? "bg-[#6B7B62] text-white"
+                              : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
+                          }`}
+                        >
+                          {mat}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
 
