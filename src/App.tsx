@@ -49,6 +49,27 @@ const CustomSlider = ({ label, value, unit, min, max, onChange }: any) => {
 };
 
 export default function App() {
+  // PASTE THIS HERE (Immediately after the component starts)
+  useEffect(() => {
+    // 1. Initialize the Telegram bridge
+    if (window.Telegram?.WebApp) {
+      const tg = window.Telegram.WebApp;
+      tg.ready(); // Critical for native hardware access 
+      tg.expand(); // Forces full-screen mode [cite: 164, 180]
+      tg.setHeaderColor('#F9F8F6'); // Matches your premium off-white branding [cite: 32]
+    }
+
+    // 2. Pre-flight check to warm up browser media permissions
+    const initCameraAccess = async () => {
+      try {
+        await navigator.mediaDevices.enumerateDevices();
+      } catch (e) {
+        console.error("Initial camera handshake failed:", e);
+      }
+    };
+    
+    initCameraAccess();
+  }, []);
   const [activeTab, setActiveTab] = useState<
     "Upload" | "Size" | "Frame" | "Rooms" | null
   >(null);
