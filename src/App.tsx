@@ -272,15 +272,15 @@ export default function App() {
     <div
       id="capture-container"
       className={`min-h-screen w-full relative overflow-hidden font-sans transition-colors duration-1000 ${
-        isARMode ? "bg-transparent" : "bg-[#F9F8F6]"
+        isARMode ? "bg-black" : "bg-[#F9F8F6]"
       }`}
     >
       {/* Immersive Room Background */}
-      {isARMode && (
+      {isARMode && bgImage && (
         <img
-          src={bgImage}
+          src={bgImage || undefined}
           alt="Room Environment"
-          className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
+          className="absolute inset-0 w-full h-full object-contain pointer-events-none z-0"
         />
       )}
 
@@ -338,7 +338,7 @@ export default function App() {
               <div className="w-full h-full relative bg-[#E8E6E1] overflow-hidden flex items-center justify-center shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)]">
                 {imageSrc ? (
                   <img
-                    src={imageSrc}
+                    src={imageSrc || undefined}
                     alt="Uploaded Artwork"
                     className="w-full h-full object-cover select-none pointer-events-none"
                     draggable={false}
@@ -392,9 +392,9 @@ export default function App() {
 
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="w-full py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-medium border border-[#E8E6E1]"
+                  className="w-full py-2 sm:py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium border border-[#E8E6E1]"
                 >
-                  <Upload size={16} />
+                  <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Upload Custom Image
                 </button>
 
@@ -416,7 +416,7 @@ export default function App() {
                       }`}
                     >
                       <img
-                        src={src}
+                        src={src || undefined}
                         className="w-full h-full object-cover"
                         alt={`Sample ${i + 1}`}
                       />
@@ -434,17 +434,17 @@ export default function App() {
 
                 <button
                   onClick={() => cameraFileInputRef.current?.click()}
-                  className="w-full py-3 bg-[#6B7B62] hover:bg-[#5a6852] text-white rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-medium shadow-md"
+                  className="w-full py-2 sm:py-3 bg-[#6B7B62] hover:bg-[#5a6852] text-white rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium shadow-md"
                 >
-                  <Camera size={16} />
+                  <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Take a Picture
                 </button>
 
                 <button
                   onClick={() => bgFileInputRef.current?.click()}
-                  className="w-full py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-2 transition-colors text-sm font-medium border border-[#E8E6E1]"
+                  className="w-full py-2 sm:py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium border border-[#E8E6E1]"
                 >
-                  <Upload size={16} />
+                  <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Upload Custom Environment
                 </button>
               </div>
@@ -459,12 +459,12 @@ export default function App() {
                   <span className="text-sm font-medium text-neutral-800 mb-3 block">
                     Frame Color
                   </span>
-                  <div className="flex gap-3">
+                  <div className="flex gap-2 sm:gap-3">
                     {colors.map((c) => (
                       <button
                         key={c.id}
                         onClick={() => setFrameColor(c.hex)}
-                        className={`w-10 h-10 rounded-full transition-all duration-200 flex items-center justify-center ${
+                        className={`w-8 h-8 sm:w-10 sm:h-10 rounded-full transition-all duration-200 flex items-center justify-center ${
                           frameColor === c.hex
                             ? "ring-2 ring-offset-2 ring-blue-500 scale-110"
                             : "ring-1 ring-neutral-200 hover:scale-105"
@@ -565,18 +565,21 @@ export default function App() {
               setArtworkWidth(50);
               setArtworkHeight(70);
             }}
-            className="w-[110px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-2 pointer-events-auto"
+            className="w-[90px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto"
           >
-            <RotateCcw size={14} className="shrink-0" /> <span>Reset</span>
+            <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
+            <span>Reset</span>
           </button>
           <button
             onClick={handleShare}
-            className="w-[110px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-2 pointer-events-auto"
+            className="w-[90px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto"
           >
-            <Share size={14} className="shrink-0" /> <span>{isCapturing ? "Saving" : "Share"}</span>
+            <Share className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
+            <span>{isCapturing ? "Saving" : "Share"}</span>
           </button>
-          <button className="w-[110px] sm:w-[130px] bg-[#6B7B62] text-white px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-transparent hover:scale-105 hover:bg-[#5a6852] transition-colors flex items-center justify-center gap-2 pointer-events-auto">
-            <Heart size={14} className="shrink-0" /> <span>Save</span>
+          <button className="w-[90px] sm:w-[130px] bg-[#6B7B62] text-white px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-transparent hover:scale-105 hover:bg-[#5a6852] transition-colors flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
+            <Heart className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
+            <span>Save</span>
           </button>
         </div>
       )}
@@ -610,19 +613,19 @@ export default function App() {
         <nav className="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 w-full flex justify-center z-40 px-2 sm:px-4 pointer-events-none">
           <div className="flex gap-2 sm:gap-4 pointer-events-auto">
             {/* Main Controls Pill */}
-            <div className="bg-[#2A2A2A] text-white rounded-[24px] px-4 sm:px-6 py-2 sm:py-4 flex items-center gap-4 sm:gap-6 shadow-[0_10px_30px_rgba(0,0,0,0.2)] backdrop-blur-md">
+            <div className="bg-[#2A2A2A] text-white rounded-[24px] px-3 sm:px-6 py-1.5 sm:py-4 flex items-center gap-3 sm:gap-6 shadow-[0_10px_30px_rgba(0,0,0,0.2)] backdrop-blur-md">
               {/* Upload Button */}
               <button
                 onClick={() =>
                   setActiveTab(activeTab === "Upload" ? null : "Upload")
                 }
-                className="flex flex-col items-center space-y-1 relative group py-1"
+                className="flex flex-col items-center space-y-0.5 sm:space-y-1 relative group py-1"
               >
                 <div
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 transition-colors ${activeTab === "Upload" ? "text-white" : "text-white/40 group-hover:text-white"}`}
                 >
-                  <Upload size={20} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
+                  <Upload className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
                     Upload
                   </span>
                 </div>
@@ -631,20 +634,20 @@ export default function App() {
                 )}
               </button>
 
-              <div className="w-px h-8 sm:h-4 bg-white/10" />
+              <div className="w-px h-6 sm:h-4 bg-white/10" />
 
               {/* Size Button */}
               <button
                 onClick={() =>
                   setActiveTab(activeTab === "Size" ? null : "Size")
                 }
-                className="flex flex-col items-center space-y-1 relative group py-1"
+                className="flex flex-col items-center space-y-0.5 sm:space-y-1 relative group py-1"
               >
                 <div
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 transition-colors ${activeTab === "Size" ? "text-white" : "text-white/40 group-hover:text-white"}`}
                 >
-                  <Maximize size={20} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
+                  <Maximize className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
                     Size
                   </span>
                 </div>
@@ -653,20 +656,20 @@ export default function App() {
                 )}
               </button>
 
-              <div className="w-px h-8 sm:h-4 bg-white/10" />
+              <div className="w-px h-6 sm:h-4 bg-white/10" />
 
               {/* Frame Button */}
               <button
                 onClick={() =>
                   setActiveTab(activeTab === "Frame" ? null : "Frame")
                 }
-                className="flex flex-col items-center space-y-1 relative group py-1"
+                className="flex flex-col items-center space-y-0.5 sm:space-y-1 relative group py-1"
               >
                 <div
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 transition-colors ${activeTab === "Frame" ? "text-white" : "text-white/40 group-hover:text-white"}`}
                 >
-                  <Square size={20} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
+                  <Square className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
                     Frame
                   </span>
                 </div>
@@ -675,20 +678,20 @@ export default function App() {
                 )}
               </button>
 
-              <div className="w-px h-8 sm:h-4 bg-white/10" />
+              <div className="w-px h-6 sm:h-4 bg-white/10" />
 
               {/* Rooms Button */}
               <button
                 onClick={() =>
                   setActiveTab(activeTab === "Rooms" ? null : "Rooms")
                 }
-                className="flex flex-col items-center space-y-1 relative group py-1"
+                className="flex flex-col items-center space-y-0.5 sm:space-y-1 relative group py-1"
               >
                 <div
                   className={`flex flex-col sm:flex-row items-center gap-1 sm:gap-2 transition-colors ${activeTab === "Rooms" ? "text-white" : "text-white/40 group-hover:text-white"}`}
                 >
-                  <ImageIcon size={20} className="sm:w-[18px] sm:h-[18px]" />
-                  <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
+                  <ImageIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
+                  <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
                     Rooms
                   </span>
                 </div>
@@ -706,16 +709,16 @@ export default function App() {
                 // Reset drag position when entering AR
                 if (!isARMode) setDragPos({ x: 0, y: 0 });
               }}
-              className={`bg-[#2A2A2A] text-white rounded-[24px] px-4 sm:px-6 py-2 sm:py-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:scale-105 active:scale-95 ${
+              className={`bg-[#2A2A2A] text-white rounded-[24px] px-3 sm:px-6 py-1.5 sm:py-4 flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 shadow-[0_10px_30px_rgba(0,0,0,0.2)] transition-all duration-300 hover:scale-105 active:scale-95 ${
                 isARMode ? "ring-2 ring-[#6B7B62] bg-[#1A1A1A]" : ""
               }`}
             >
               {isARMode ? (
-                <Move size={20} className="sm:w-[18px] sm:h-[18px]" />
+                <Move className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               ) : (
-                <Box size={20} className="sm:w-[18px] sm:h-[18px]" />
+                <Box className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               )}
-              <span className="text-[9px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
+              <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
                 {isARMode ? "Move" : "AR View"}
               </span>
             </button>
