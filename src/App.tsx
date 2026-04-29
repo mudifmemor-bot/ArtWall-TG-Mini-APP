@@ -57,7 +57,141 @@ declare global {
   }
 }
 
+type Language = "en" | "ru" | "uz";
+
+const translations = {
+  en: {
+    appTitle: "Art Wall AR",
+    uploadImage: "Upload\nan image",
+    seeItOnWall: "and see it\non your wall",
+    artwork: "Artwork",
+    uploadCustomImage: "Upload Custom Image",
+    sampleGallery: "Sample Gallery",
+    environments: "Environments",
+    takePicture: "Take a Picture",
+    uploadCustomEnv: "Upload Custom Environment",
+    configuration: "Configuration",
+    frameColor: "Frame Color",
+    frameMaterial: "Frame Material",
+    solid: "solid",
+    wood: "wood",
+    metal: "metal",
+    pattern: "pattern",
+    frameThickness: "Frame Thickness",
+    mattingThickness: "Matting Thickness",
+    width: "Width",
+    height: "Height",
+    scale: "Scale",
+    tiltHorizontal: "Tilt Horizontal",
+    tiltVertical: "Tilt Vertical",
+    move: "move",
+    rotate: "rotate",
+    arControls: "AR Controls",
+    dragToMove: "Drag on the screen to move the artwork across your wall.",
+    selectRotate: "Select \"ROTATE\" at the top and drag to tilt the artwork.",
+    selectScale: "Select \"SCALE\" at the top and drag to adjust its overall size.",
+    gotIt: "Got it",
+    reset: "Reset",
+    share: "Share",
+    saving: "Saving",
+    save: "Save",
+    uploadTab: "Upload",
+    sizeTab: "Size",
+    frameTab: "Frame",
+    roomsTab: "Rooms",
+    arView: "AR View",
+    moveTab: "Move"
+  },
+  ru: {
+    appTitle: "Art Wall AR",
+    uploadImage: "Загрузить\nизображение",
+    seeItOnWall: "и увидеть его\nна стене",
+    artwork: "Искусство",
+    uploadCustomImage: "Загрузить свое изображение",
+    sampleGallery: "Галерея примеров",
+    environments: "Окружение",
+    takePicture: "Сделать фото",
+    uploadCustomEnv: "Загрузить свое окружение",
+    configuration: "Настройки",
+    frameColor: "Цвет рамы",
+    frameMaterial: "Материал рамы",
+    solid: "сплошной",
+    wood: "дерево",
+    metal: "металл",
+    pattern: "узор",
+    frameThickness: "Толщина рамы",
+    mattingThickness: "Толщина паспарту",
+    width: "Ширина",
+    height: "Высота",
+    scale: "Масштаб",
+    tiltHorizontal: "Наклон по горизонтали",
+    tiltVertical: "Наклон по вертикали",
+    move: "двигать",
+    rotate: "вращать",
+    arControls: "Управление AR",
+    dragToMove: "Перетаскивайте по экрану, чтобы переместить картину.",
+    selectRotate: "Выберите «ВРАЩАТЬ» вверху и перетащите, чтобы наклонить.",
+    selectScale: "Выберите «МАСШТАБ» вверху и перетащите, чтобы изменить размер.",
+    gotIt: "Понятно",
+    reset: "Сброс",
+    share: "Поделиться",
+    saving: "Сохранение",
+    save: "Сохранить",
+    uploadTab: "Загрузка",
+    sizeTab: "Размер",
+    frameTab: "Рама",
+    roomsTab: "Комнаты",
+    arView: "AR Режим",
+    moveTab: "Двигать"
+  },
+  uz: {
+    appTitle: "Art Wall AR",
+    uploadImage: "Rasmni\nyuklash",
+    seeItOnWall: "va uni devorda\nko'rish",
+    artwork: "San'at asari",
+    uploadCustomImage: "O'z rasmingizni yuklash",
+    sampleGallery: "Namunalar galereyasi",
+    environments: "Atrof-muhit",
+    takePicture: "Rasmga olish",
+    uploadCustomEnv: "O'z muhitingizni yuklash",
+    configuration: "Sozlamalar",
+    frameColor: "Ramka rangi",
+    frameMaterial: "Ramka materiali",
+    solid: "bir xil",
+    wood: "yog'och",
+    metal: "metall",
+    pattern: "naqsh",
+    frameThickness: "Ramka qalinligi",
+    mattingThickness: "Paspurtu qalinligi",
+    width: "Kenglik",
+    height: "Balandlik",
+    scale: "Masshtab",
+    tiltHorizontal: "Gorizontal qiyalik",
+    tiltVertical: "Vertikal qiyalik",
+    move: "siljitish",
+    rotate: "aylantirish",
+    arControls: "AR boshqaruvi",
+    dragToMove: "Kartinani devor bo'ylab siljitish uchun ekranni torting.",
+    selectRotate: "Yuqoridan «AYLANTIRISH»ni tanlang va qiyalikni o'zgartiring.",
+    selectScale: "Yuqoridan «MASSHTAB»ni tanlang va o'lchamini o'zgartiring.",
+    gotIt: "Tushunarli",
+    reset: "Qayta",
+    share: "Ulashish",
+    saving: "Saqlanmoqda",
+    save: "Saqlash",
+    uploadTab: "Yuklash",
+    sizeTab: "O'lcham",
+    frameTab: "Ramka",
+    roomsTab: "Xonalar",
+    arView: "AR ko'rinish",
+    moveTab: "Siljitish"
+  }
+};
+
 export default function App() {
+  const [lang, setLang] = useState<Language>("en");
+  const t = translations[lang];
+
   // PASTE THIS HERE (Immediately after the component starts)
   useEffect(() => {
     // 1. Initialize the Telegram bridge
@@ -325,8 +459,23 @@ export default function App() {
         <header className="absolute top-0 left-0 w-full p-6 sm:p-8 flex justify-between items-start z-20 pointer-events-none">
           <div className="flex flex-col pointer-events-auto">
             <h1 className="font-serif-custom text-2xl sm:text-3xl font-light italic">
-              Art Wall AR
+              {t.appTitle}
             </h1>
+          </div>
+          <div className="flex gap-1 sm:gap-2 pointer-events-auto">
+            {(["en", "ru", "uz"] as const).map((l) => (
+              <button
+                key={l}
+                onClick={() => setLang(l)}
+                className={`uppercase text-[10px] sm:text-xs font-bold px-2 sm:px-3 py-1 sm:py-1.5 rounded-full transition-colors ${
+                  lang === l
+                    ? "bg-[#1A1A1A] text-white"
+                    : "bg-white/50 text-[#1A1A1A] hover:bg-white/80"
+                }`}
+              >
+                {l}
+              </button>
+            ))}
           </div>
         </header>
       )}
@@ -439,20 +588,16 @@ export default function App() {
                       style={{ width: "80%", height: "80%" }}
                     >
                       <p
-                        className="text-neutral-800 font-light tracking-tight mb-[2cqi] leading-[1.1]"
+                        className="text-neutral-800 font-light tracking-tight mb-[2cqi] leading-[1.1] whitespace-pre-wrap"
                         style={{ fontSize: "9cqi" }}
                       >
-                        Upload
-                        <br />
-                        an image
+                        {t.uploadImage}
                       </p>
                       <p
-                        className="text-neutral-600 font-light leading-[1.3]"
+                        className="text-neutral-600 font-light leading-[1.3] whitespace-pre-wrap"
                         style={{ fontSize: "4.5cqi" }}
                       >
-                        and see it
-                        <br />
-                        on your wall
+                        {t.seeItOnWall}
                       </p>
                     </div>
                   </div>
@@ -482,7 +627,7 @@ export default function App() {
             {activeTab === "Upload" && (
               <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
                 <h3 className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">
-                  Artwork
+                  {t.artwork}
                 </h3>
 
                 <button
@@ -490,13 +635,13 @@ export default function App() {
                   className="w-full py-2 sm:py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium border border-[#E8E6E1]"
                 >
                   <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  Upload Custom Image
+                  {t.uploadCustomImage}
                 </button>
 
                 <div className="h-px bg-neutral-100 w-full my-1" />
 
                 <span className="text-sm font-medium text-neutral-800 block">
-                  Sample Gallery
+                  {t.sampleGallery}
                 </span>
 
                 <div className="grid grid-cols-5 gap-2 max-h-[160px] overflow-y-auto pr-1 pb-1 scrollbar-thin">
@@ -524,7 +669,7 @@ export default function App() {
             {activeTab === "Rooms" && (
               <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
                 <h3 className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">
-                  Environments
+                  {t.environments}
                 </h3>
 
                 <button
@@ -532,7 +677,7 @@ export default function App() {
                   className="w-full py-2 sm:py-3 bg-[#6B7B62] hover:bg-[#5a6852] text-white rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium shadow-md"
                 >
                   <Camera className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  Take a Picture
+                  {t.takePicture}
                 </button>
 
                 <button
@@ -540,7 +685,7 @@ export default function App() {
                   className="w-full py-2 sm:py-3 bg-[#F9F8F6] hover:bg-[#E8E6E1] text-[#1A1A1A] rounded-xl flex items-center justify-center gap-1.5 sm:gap-2 transition-colors text-[11px] sm:text-sm font-medium border border-[#E8E6E1]"
                 >
                   <Upload className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-                  Upload Custom Environment
+                  {t.uploadCustomEnv}
                 </button>
               </div>
             )}
@@ -548,11 +693,11 @@ export default function App() {
             {activeTab === "Frame" && (
               <div className="flex flex-col gap-6 animate-in fade-in zoom-in-95 duration-200">
                 <h3 className="text-xs font-bold uppercase tracking-widest opacity-60">
-                  Configuration
+                  {t.configuration}
                 </h3>
                 <div>
                   <span className="text-sm font-medium text-neutral-800 mb-3 block">
-                    Frame Color
+                    {t.frameColor}
                   </span>
                   <div className="flex gap-2 sm:gap-3">
                     {colors.map((c) => (
@@ -572,7 +717,7 @@ export default function App() {
 
                 <div>
                   <span className="text-sm font-medium text-neutral-800 mb-3 block">
-                    Frame Material
+                    {t.frameMaterial}
                   </span>
                   <div className="flex gap-2">
                     {(["solid", "wood", "metal", "pattern"] as const).map(
@@ -586,7 +731,7 @@ export default function App() {
                               : "bg-neutral-100 text-neutral-600 hover:bg-neutral-200"
                           }`}
                         >
-                          {mat}
+                          {t[mat]}
                         </button>
                       ),
                     )}
@@ -596,7 +741,7 @@ export default function App() {
                 <div className="h-px bg-neutral-100 w-full" />
 
                 <CustomSlider
-                  label="Frame Thickness"
+                  label={t.frameThickness}
                   value={frameThickness}
                   unit="cm"
                   min={1}
@@ -605,7 +750,7 @@ export default function App() {
                 />
 
                 <CustomSlider
-                  label="Matting Thickness"
+                  label={t.mattingThickness}
                   value={mattingThickness}
                   unit="cm"
                   min={0}
@@ -618,10 +763,10 @@ export default function App() {
             {activeTab === "Size" && (
               <div className="flex flex-col gap-4 animate-in fade-in zoom-in-95 duration-200">
                 <h3 className="text-xs font-bold uppercase tracking-widest opacity-60 mb-2">
-                  Configuration
+                  {t.configuration}
                 </h3>
                 <CustomSlider
-                  label="Width"
+                  label={t.width}
                   value={artworkWidth}
                   unit="cm"
                   min={20}
@@ -630,7 +775,7 @@ export default function App() {
                 />
 
                 <CustomSlider
-                  label="Height"
+                  label={t.height}
                   value={artworkHeight}
                   unit="cm"
                   min={20}
@@ -639,7 +784,7 @@ export default function App() {
                 />
 
                 <CustomSlider
-                  label="Scale"
+                  label={t.scale}
                   value={Math.round(customScale * 100)}
                   unit="%"
                   min={50}
@@ -647,7 +792,7 @@ export default function App() {
                   onChange={(val: number) => setCustomScale(val / 100)}
                 />
                 <CustomSlider
-                  label="Tilt Horizontal"
+                  label={t.tiltHorizontal}
                   value={rotation.ry}
                   unit="°"
                   min={-60}
@@ -657,7 +802,7 @@ export default function App() {
                   }
                 />
                 <CustomSlider
-                  label="Tilt Vertical"
+                  label={t.tiltVertical}
                   value={rotation.rx}
                   unit="°"
                   min={-60}
@@ -685,7 +830,7 @@ export default function App() {
                   : "text-[#1A1A1A] hover:bg-neutral-100"
               }`}
             >
-              {mode}
+              {t[mode]}
             </button>
           ))}
         </div>
@@ -702,7 +847,7 @@ export default function App() {
               <X size={20} />
             </button>
             <h2 className="text-xl font-bold mb-4 text-[#1A1A1A]">
-              AR Controls
+              {t.arControls}
             </h2>
             <ul className="space-y-4 mb-8 text-sm text-neutral-600">
               <li className="flex items-start gap-3">
@@ -710,8 +855,8 @@ export default function App() {
                   <Move size={16} />
                 </div>
                 <div>
-                  <span className="font-bold text-neutral-800 block">Move</span>{" "}
-                  Drag on the screen to move the artwork across your wall.
+                  <span className="font-bold text-neutral-800 block">{t.moveTab}</span>{" "}
+                  {t.dragToMove}
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -720,9 +865,9 @@ export default function App() {
                 </div>
                 <div>
                   <span className="font-bold text-neutral-800 block">
-                    Rotate
+                    {t.rotate}
                   </span>{" "}
-                  Select "ROTATE" at the top and drag to tilt the artwork.
+                  {t.selectRotate}
                 </div>
               </li>
               <li className="flex items-start gap-3">
@@ -731,9 +876,9 @@ export default function App() {
                 </div>
                 <div>
                   <span className="font-bold text-neutral-800 block">
-                    Scale
+                    {t.scale}
                   </span>{" "}
-                  Select "SCALE" at the top and drag to adjust its overall size.
+                  {t.selectScale}
                 </div>
               </li>
             </ul>
@@ -741,7 +886,7 @@ export default function App() {
               onClick={() => setShowARInstructions(false)}
               className="w-full py-3 bg-[#1A1A1A] text-white rounded-xl font-bold uppercase tracking-widest text-xs hover:bg-black transition-colors"
             >
-              Got it
+              {t.gotIt}
             </button>
           </div>
         </div>
@@ -761,18 +906,18 @@ export default function App() {
             className="w-[90px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto"
           >
             <RotateCcw className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
-            <span>Reset</span>
+            <span>{t.reset}</span>
           </button>
           <button
             onClick={handleShare}
             className="w-[90px] sm:w-[130px] bg-white/90 backdrop-blur-md text-[#1A1A1A] px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-white hover:scale-105 transition-transform flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto"
           >
             <Share className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
-            <span>{isCapturing ? "Saving" : "Share"}</span>
+            <span>{isCapturing ? t.saving : t.share}</span>
           </button>
           <button className="w-[90px] sm:w-[130px] bg-[#6B7B62] text-white px-2 sm:px-4 py-1.5 sm:py-2.5 rounded-xl text-[8px] sm:text-xs font-bold uppercase tracking-widest shadow-lg border border-transparent hover:scale-105 hover:bg-[#5a6852] transition-colors flex items-center justify-center gap-1.5 sm:gap-2 pointer-events-auto">
             <Heart className="w-3 h-3 sm:w-3.5 sm:h-3.5 shrink-0" />{" "}
-            <span>Save</span>
+            <span>{t.save}</span>
           </button>
         </div>
       )}
@@ -819,7 +964,7 @@ export default function App() {
                 >
                   <Upload className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                   <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
-                    Upload
+                    {t.uploadTab}
                   </span>
                 </div>
                 {activeTab === "Upload" && (
@@ -841,7 +986,7 @@ export default function App() {
                 >
                   <Maximize className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                   <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
-                    Size
+                    {t.sizeTab}
                   </span>
                 </div>
                 {activeTab === "Size" && (
@@ -863,7 +1008,7 @@ export default function App() {
                 >
                   <Square className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                   <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
-                    Frame
+                    {t.frameTab}
                   </span>
                 </div>
                 {activeTab === "Frame" && (
@@ -885,7 +1030,7 @@ export default function App() {
                 >
                   <ImageIcon className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
                   <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
-                    Rooms
+                    {t.roomsTab}
                   </span>
                 </div>
                 {activeTab === "Rooms" && (
@@ -912,7 +1057,7 @@ export default function App() {
                 <Box className="w-4 h-4 sm:w-[18px] sm:h-[18px]" />
               )}
               <span className="text-[7.5px] sm:text-xs font-bold uppercase tracking-widest mt-1 sm:mt-0">
-                {isARMode ? "Move" : "AR View"}
+                {isARMode ? t.moveTab : t.arView}
               </span>
             </button>
           </div>
