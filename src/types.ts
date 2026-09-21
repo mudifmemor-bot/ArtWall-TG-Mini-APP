@@ -1,6 +1,8 @@
 export type Language = "en" | "ru" | "uz";
 
-export type UserRole = "buyer" | "artist";
+export type UserRole = "buyer" | "artist" | "admin";
+
+export const MAX_ARTIST_UPLOADS = 7;
 
 export interface TelegramUser {
   id: number;
@@ -11,6 +13,7 @@ export interface TelegramUser {
   role: UserRole;
   bio?: string;
   location?: string;
+  createdAt?: string;
 }
 
 export interface Artwork {
@@ -30,10 +33,14 @@ export interface Artwork {
   description: string;
   category: "modern" | "abstract" | "landscape" | "minimalist" | "portrait" | "classic";
   likesCount: number;
+  viewsCount?: number;
+  arTriesCount?: number;
+  inBasketCount?: number;
   isAvailable: boolean;
   featured?: boolean;
   defaultFrameColor?: string;
   defaultFrameMaterial?: "solid" | "wood" | "metal" | "pattern";
+  createdAt?: string;
 }
 
 export interface CartItem {
@@ -50,4 +57,14 @@ export interface RoomPreset {
   id: string;
   labelKey: string;
   src: string;
+}
+
+export interface PlatformStats {
+  totalArtists: number;
+  totalBuyers: number;
+  totalArtworks: number;
+  totalViews: number;
+  totalLikes: number;
+  totalInBasket: number;
+  totalArTries: number;
 }

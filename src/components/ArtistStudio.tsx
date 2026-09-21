@@ -14,8 +14,14 @@ import {
   Eye,
   Camera,
   Layers,
+  AlertCircle,
+  Info,
+  Heart,
+  ShoppingBag,
+  TrendingUp,
+  BarChart2,
 } from "lucide-react";
-import { Artwork, TelegramUser, Language } from "../types";
+import { Artwork, TelegramUser, Language, MAX_ARTIST_UPLOADS } from "../types";
 import { translations } from "../translations";
 
 interface Props {
@@ -54,11 +60,33 @@ export const ArtistStudio: React.FC<Props> = ({
   const [frameMaterial, setFrameMaterial] = useState<"solid" | "wood" | "metal" | "pattern">("wood");
   const [frameColor, setFrameColor] = useState("#D6B996");
   const [publishedToast, setPublishedToast] = useState(false);
+  const [showQuotaNotice, setShowQuotaNotice] = useState(false);
 
-  // Filter artworks created by this artist (or all if simulated artist)
-  const artistWorks = artworks.filter(
-    (a) => !user?.username || a.artistUsername === user.username || a.artistName === user.first_name + (user.last_name ? ` ${user.last_name}` : "")
-  );
+  // Filter artworks created strictly by this artist
+  const isMyArtwork = (a: Artwork) => {
+    if (!user) return true;
+    if (user.id && String(a.artistId) === String(user.id)) return true;
+    if (user.username && a.artistUsername && a.artistUsername.toLowerCase() === user.username.toLowerCase()) return true;
+    const fullName = `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}`.trim().toLowerCase();
+    if (a.artistName && a.artistName.toLowerCase() === fullName) return true;
+    // Default fallback for demo artist Elena Rostova
+    if ((user.username === "elena_art_studio" || user.first_name.toLowerCase().includes("elena")) &&
+        (a.artistId === "artist-1" || a.artistUsername === "elena_art_studio")) {
+      return true;
+    }
+    return false;
+  };
+
+  const artistWorks = artworks.filter(isMyArtwork);
+
+  // Calculate real-time metrics strictly for THIS artist's artworks
+  const totalMyViews = artistWorks.reduce((acc, a) => acc + (a.viewsCount || 0), 0);
+  const totalMyLikes = artistWorks.reduce((acc, a) => acc + (a.likesCount || 0), 0);
+  const totalMyInBasket = artistWorks.reduce((acc, a) => acc + (a.inBasketCount || 0), 0);
+  const totalMyArTries = artistWorks.reduce((acc, a) => acc + (a.arTriesCount || 0), 0);
+  const totalMyPortfolioValue = artistWorks.reduce((acc, a) => acc + (a.price || 0), 0);
+
+  const isUploadLimitReached = artistWorks.length >= MAX_ARTIST_UPLOADS;
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -83,13 +111,14 @@ export const ArtistStudio: React.FC<Props> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!imageUrl && !imagePreview) return;
+    if (isUploadLimitReached) return;
 
     const newArt: Artwork = {
       id: `artist-art-${Date.now()}`,
       title: title.trim() || "Untitled Composition",
       artistId: user?.id ? String(user.id) : "artist-me",
-      artistName: user ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}` : "Studio Artist",
-      artistUsername: user?.username || "telegram_artist",
+      artistName: user ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}` : "Elena Rostova",
+      artistUsername: user?.username || "elena_art_studio",
       artistAvatar: user?.photo_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
       imageUrl: imagePreview || imageUrl,
       price: Number(price) || 450,
@@ -99,10 +128,14 @@ export const ArtistStudio: React.FC<Props> = ({
       description: description.trim() || "Original studio piece ready for interior staging.",
       category,
       likesCount: 1,
+      viewsCount: 12,
+      arTriesCount: 3,
+      inBasketCount: 0,
       isAvailable: true,
       defaultFrameColor: frameColor,
       defaultFrameMaterial: frameMaterial,
       year: new Date().getFullYear(),
+      createdAt: new Date().toISOString(),
     };
 
     onAddArtwork(newArt);
@@ -157,23 +190,137 @@ export const ArtistStudio: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Action buttons */}
-        <div className="flex items-center gap-2.5 w-full md:w-auto justify-end">
-          <button
-            onClick={onOpenAuth}
-            className="py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold transition-colors"
-          >
-            Edit Profile
-          </button>
-          <button
-            onClick={() => setShowUploadModal(true)}
-            className="py-2.5 px-5 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md hover:scale-105 transition-all"
-          >
-            <Plus size={16} />
-            {t.uploadNewArtwork}
-          </button>
+        {/* Quota & Action buttons */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto justify-end">
+          {/* Quota Progress Tracker */}
+          <div className="bg-neutral-50 px-4 py-2.5 rounded-2xl border border-neutral-200 min-w-[180px]">
+            <div className="flex justify-between text-[11px] font-bold text-neutral-700 mb-1">
+              <span>{t.artworkQuota}</span>
+              <span className="font-mono text-[#6B7B62]">
+                {artistWorks.length} / {MAX_ARTIST_UPLOADS}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-neutral-200 rounded-full overflow-hidden">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  isUploadLimitReached ? "bg-amber-500" : "bg-[#6B7B62]"
+                }`}
+                style={{ width: `${Math.min(100, (artistWorks.length / MAX_ARTIST_UPLOADS) * 100)}%` }}
+              />
+            </div>
+            <span className="text-[9px] text-neutral-400 mt-1 block">
+              {t.upTo7}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onOpenAuth}
+              className="py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold transition-colors"
+            >
+              Edit Profile
+            </button>
+            <button
+              onClick={() => {
+                if (isUploadLimitReached) {
+                  setShowQuotaNotice(true);
+                } else {
+                  setShowUploadModal(true);
+                }
+              }}
+              className={`py-2.5 px-5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all ${
+                isUploadLimitReached
+                  ? "bg-neutral-200 text-neutral-600 hover:bg-neutral-300 cursor-pointer"
+                  : "bg-[#1A1A1A] hover:bg-black text-white hover:scale-105"
+              }`}
+              title={isUploadLimitReached ? t.uploadLimitReached : undefined}
+            >
+              <Plus size={16} />
+              {t.uploadNewArtwork}
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* Stats of My Artworks Section */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <BarChart2 size={18} className="text-[#6B7B62]" />
+            <h2 className="font-serif-custom text-xl font-light italic text-[#1A1A1A]">
+              My Artworks Performance & Stats
+            </h2>
+          </div>
+          <span className="text-xs text-neutral-500">
+            Real-time engagement across your {artistWorks.length} artworks
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+          <div className="bg-white rounded-2xl p-4 border border-[#E8E6E1] shadow-xs">
+            <div className="flex items-center justify-between text-neutral-500 mb-1.5">
+              <span className="text-[11px] font-medium">Views on My Art</span>
+              <Eye size={15} className="text-neutral-600" />
+            </div>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-[#1A1A1A]">
+              {totalMyViews.toLocaleString()}
+            </div>
+            <span className="text-[10px] text-neutral-400">Total catalog impressions</span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-[#E8E6E1] shadow-xs">
+            <div className="flex items-center justify-between text-neutral-500 mb-1.5">
+              <span className="text-[11px] font-medium">Collector Likes</span>
+              <Heart size={15} className="text-rose-500 fill-rose-50" />
+            </div>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-rose-600">
+              {totalMyLikes.toLocaleString()}
+            </div>
+            <span className="text-[10px] text-neutral-400">Saved to favorites</span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-[#E8E6E1] shadow-xs">
+            <div className="flex items-center justify-between text-neutral-500 mb-1.5">
+              <span className="text-[11px] font-medium">In Collector Baskets</span>
+              <ShoppingBag size={15} className="text-emerald-600" />
+            </div>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-emerald-700">
+              {totalMyInBasket.toLocaleString()}
+            </div>
+            <span className="text-[10px] text-neutral-400">High purchase intent</span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-[#E8E6E1] shadow-xs">
+            <div className="flex items-center justify-between text-neutral-500 mb-1.5">
+              <span className="text-[11px] font-medium">AR Wall Tries</span>
+              <Layers size={15} className="text-[#2AABEE]" />
+            </div>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-[#2AABEE]">
+              {totalMyArTries.toLocaleString()}
+            </div>
+            <span className="text-[10px] text-neutral-400">Virtual wall simulations</span>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-[#E8E6E1] shadow-xs col-span-2 sm:col-span-1">
+            <div className="flex items-center justify-between text-neutral-500 mb-1.5">
+              <span className="text-[11px] font-medium">My Portfolio Value</span>
+              <TrendingUp size={15} className="text-amber-600" />
+            </div>
+            <div className="font-mono text-xl sm:text-2xl font-bold text-[#1A1A1A]">
+              ${totalMyPortfolioValue.toLocaleString()}
+            </div>
+            <span className="text-[10px] text-neutral-400">Listed artwork total</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Upload Quota Alert Banner if limit is reached */}
+      {isUploadLimitReached && (
+        <div className="mb-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-3">
+          <Info size={20} className="text-amber-600 shrink-0" />
+          <span>{t.uploadLimitReached}</span>
+        </div>
+      )}
 
       {/* Upload Modal */}
       {showUploadModal && (
@@ -185,7 +332,7 @@ export const ArtistStudio: React.FC<Props> = ({
                   {t.uploadNewArtwork}
                 </h2>
                 <p className="text-xs text-neutral-500">
-                  Add artwork details, dimensions, and framing preview preferences.
+                  Add artwork details, dimensions, and framing preview preferences ({artistWorks.length + 1} of {MAX_ARTIST_UPLOADS}).
                 </p>
               </div>
               <button
@@ -287,6 +434,41 @@ export const ArtistStudio: React.FC<Props> = ({
                     placeholder="650"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs sm:text-sm focus:ring-2 focus:ring-[#6B7B62] focus:outline-none font-mono"
                   />
+                </div>
+              </div>
+
+              {/* Standard Dimension Presets */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className="font-medium text-neutral-600 text-[11px]">
+                    Quick Canvas Presets (cm):
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {[
+                    { w: 40, h: 50, label: "40×50" },
+                    { w: 50, h: 70, label: "50×70" },
+                    { w: 60, h: 80, label: "60×80" },
+                    { w: 70, h: 90, label: "70×90" },
+                    { w: 80, h: 100, label: "80×100" },
+                    { w: 100, h: 120, label: "100×120" },
+                  ].map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => {
+                        setWidth(preset.w);
+                        setHeight(preset.h);
+                      }}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-mono font-medium transition-all ${
+                        width === preset.w && height === preset.h
+                          ? "bg-[#1A1A1A] text-white"
+                          : "bg-neutral-100 hover:bg-neutral-200 text-neutral-700"
+                      }`}
+                    >
+                      {preset.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -423,10 +605,10 @@ export const ArtistStudio: React.FC<Props> = ({
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-serif-custom text-2xl font-light italic text-[#1A1A1A]">
-            {t.myArtworks} ({artistWorks.length})
+            {t.myArtworks} ({artistWorks.length} / {MAX_ARTIST_UPLOADS})
           </h2>
           <span className="text-xs text-neutral-500">
-            Preview angles, room staging, and share
+            Preview angles, room staging, and share with collectors
           </span>
         </div>
 
@@ -439,7 +621,7 @@ export const ArtistStudio: React.FC<Props> = ({
               {t.noUploadsYet}
             </h3>
             <p className="text-xs text-neutral-500 mb-5 font-light">
-              Upload your first artwork to test in modern rooms and share direct 3D visualizer links with your Telegram audience.
+              Upload your first artwork (up to {MAX_ARTIST_UPLOADS} in early access) to stage in modern rooms or on walls and share direct links with your Telegram audience.
             </p>
             <button
               onClick={() => setShowUploadModal(true)}
@@ -466,26 +648,29 @@ export const ArtistStudio: React.FC<Props> = ({
                     />
 
                     {/* Staging Room Fast Launchers */}
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 p-1 bg-black/60 backdrop-blur-md rounded-xl text-white">
-                      <span className="text-[10px] font-bold px-1.5">
-                        Stage in:
+                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-1 p-1.5 bg-black/65 backdrop-blur-md rounded-xl text-white">
+                      <span className="text-[10px] font-bold px-1 flex items-center gap-1">
+                        <Layers size={11} /> Stage:
                       </span>
                       <div className="flex gap-1">
                         <button
                           onClick={() => onViewOnWall(art, "living-room")}
                           className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/40 text-[9px] font-medium"
+                          title="Living Room"
                         >
                           Living
                         </button>
                         <button
                           onClick={() => onViewOnWall(art, "home-office")}
                           className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/40 text-[9px] font-medium"
+                          title="Home Office"
                         >
                           Office
                         </button>
                         <button
                           onClick={() => onViewOnWall(art, "bedroom")}
                           className="px-2 py-0.5 rounded-lg bg-white/20 hover:bg-white/40 text-[9px] font-medium"
+                          title="Bedroom"
                         >
                           Bed
                         </button>
@@ -502,9 +687,45 @@ export const ArtistStudio: React.FC<Props> = ({
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-neutral-500 mb-4 font-mono">
+                  <p className="text-[11px] text-neutral-500 mb-3 font-mono">
                     {art.width} × {art.height} cm • {art.medium}
                   </p>
+
+                  {/* Artwork Individual Engagement Stats */}
+                  <div className="grid grid-cols-4 gap-1 p-2 rounded-xl bg-[#F9F8F6] border border-[#E8E6E1] mb-3 text-center">
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] text-neutral-400 flex items-center gap-0.5">
+                        <Eye size={10} /> Views
+                      </span>
+                      <span className="font-mono text-xs font-bold text-neutral-800">
+                        {art.viewsCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] text-neutral-400 flex items-center gap-0.5">
+                        <Heart size={10} className="text-rose-400" /> Likes
+                      </span>
+                      <span className="font-mono text-xs font-bold text-rose-600">
+                        {art.likesCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] text-neutral-400 flex items-center gap-0.5">
+                        <Layers size={10} className="text-[#2AABEE]" /> AR
+                      </span>
+                      <span className="font-mono text-xs font-bold text-[#2AABEE]">
+                        {art.arTriesCount || 0}
+                      </span>
+                    </div>
+                    <div className="flex flex-col items-center">
+                      <span className="text-[9px] text-neutral-400 flex items-center gap-0.5">
+                        <ShoppingBag size={10} className="text-emerald-500" /> Cart
+                      </span>
+                      <span className="font-mono text-xs font-bold text-emerald-700">
+                        {art.inBasketCount || 0}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -538,6 +759,32 @@ export const ArtistStudio: React.FC<Props> = ({
           </div>
         )}
       </div>
+
+      {/* Quota Limit Notice Modal */}
+      {showQuotaNotice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-white/80 text-center relative">
+            <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center mx-auto mb-3">
+              <Sparkles size={24} />
+            </div>
+            <h3 className="font-serif-custom text-xl font-bold text-[#1A1A1A] mb-2">
+              Early Access Limit Reached
+            </h3>
+            <p className="text-xs text-neutral-600 mb-5 leading-relaxed">
+              {t.uploadLimitReached}
+            </p>
+            <div className="p-3 rounded-xl bg-neutral-100 text-neutral-700 text-[11px] mb-5">
+              Current slots: <strong>{artistWorks.length} of {MAX_ARTIST_UPLOADS} artworks</strong> active in your Telegram portfolio.
+            </div>
+            <button
+              onClick={() => setShowQuotaNotice(false)}
+              className="w-full py-2.5 px-4 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold uppercase tracking-wider transition-colors"
+            >
+              {t.gotIt}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

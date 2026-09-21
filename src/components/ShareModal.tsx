@@ -58,12 +58,20 @@ export const ShareModal: React.FC<Props> = ({
 
   const handleShareWhatsApp = () => {
     const waUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(`${shareText} ${currentUrl}`)}`;
-    window.open(waUrl, "_blank");
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(waUrl);
+    } else {
+      window.open(waUrl, "_blank");
+    }
   };
 
   const handleShareTwitter = () => {
     const twUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}&url=${encodeURIComponent(currentUrl)}`;
-    window.open(twUrl, "_blank");
+    if (window.Telegram?.WebApp?.openLink) {
+      window.Telegram.WebApp.openLink(twUrl);
+    } else {
+      window.open(twUrl, "_blank");
+    }
   };
 
   return (

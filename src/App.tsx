@@ -5,6 +5,8 @@ import { WallVisualizer } from "./components/WallVisualizer";
 import { ArtistStudio } from "./components/ArtistStudio";
 import { BasketDrawer } from "./components/BasketDrawer";
 import { TelegramAuthModal } from "./components/TelegramAuthModal";
+import { OnboardingModal } from "./components/OnboardingModal";
+import { AdminDashboard } from "./components/AdminDashboard";
 import { ArtworkDetailModal } from "./components/ArtworkDetailModal";
 import { ShareModal } from "./components/ShareModal";
 import { Artwork, CartItem, Language, TelegramUser } from "./types";
@@ -18,13 +20,90 @@ declare global {
   }
 }
 
+const defaultDirectoryUsers: TelegramUser[] = [
+  {
+    id: 101,
+    first_name: "Elena",
+    last_name: "Rostova",
+    username: "elena_art_studio",
+    photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
+    role: "artist",
+    bio: "Contemporary mixed media artist creating spatial dialogue through texture and light.",
+    location: "Tashkent Studio",
+  },
+  {
+    id: 102,
+    first_name: "Azizbek",
+    last_name: "Karimov",
+    username: "aziz_samarkand_art",
+    photo_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
+    role: "artist",
+    bio: "Ceramic textured acrylics and architectural heritage.",
+    location: "Samarkand",
+  },
+  {
+    id: 103,
+    first_name: "Mikhail",
+    last_name: "Voronin",
+    username: "voronin_m_art",
+    photo_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200",
+    role: "artist",
+    bio: "Minimalist geometry and atmospheric tones.",
+    location: "Tashkent",
+  },
+  {
+    id: 201,
+    first_name: "Rustam",
+    last_name: "Aliev",
+    username: "rustam_collector",
+    photo_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
+    role: "buyer",
+    location: "Tashkent",
+  },
+  {
+    id: 202,
+    first_name: "Daria",
+    last_name: "Sokolova",
+    username: "daria_artlover",
+    photo_url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200",
+    role: "buyer",
+    location: "Almaty",
+  },
+  {
+    id: 203,
+    first_name: "Farrukh",
+    last_name: "Khamidov",
+    username: "farrukh_interior",
+    photo_url: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=200",
+    role: "buyer",
+    location: "Tashkent",
+  },
+  {
+    id: 999,
+    first_name: "Admin",
+    last_name: "Curator",
+    username: "artwall_admin",
+    photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+    role: "admin",
+    location: "HQ",
+  },
+];
+
 export default function App() {
   const [lang, setLang] = useState<Language>(() => {
     const saved = localStorage.getItem("artwall_lang");
     return (saved as Language) || "en";
   });
 
-  const [currentTab, setCurrentTab] = useState<"gallery" | "visualizer" | "studio" | "basket">("gallery");
+  const [currentTab, setCurrentTab] = useState<"gallery" | "visualizer" | "studio" | "basket" | "admin">("gallery");
+
+  // Onboarding startup state
+  const [hasOnboarded, setHasOnboarded] = useState<boolean>(() => {
+    return localStorage.getItem("artwall_onboarded") === "true";
+  });
+  const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
+    return localStorage.getItem("artwall_onboarded") !== "true";
+  });
 
   // Artworks state (with localStorage persistence)
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
@@ -37,6 +116,17 @@ export default function App() {
     return initialArtworks;
   });
 
+  // Users Directory state for Admin
+  const [usersDirectory, setUsersDirectory] = useState<TelegramUser[]>(() => {
+    try {
+      const saved = localStorage.getItem("artwall_users_directory");
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error(e);
+    }
+    return defaultDirectoryUsers;
+  });
+
   useEffect(() => {
     localStorage.setItem("artwall_artworks", JSON.stringify(artworks));
   }, [artworks]);
@@ -45,7 +135,11 @@ export default function App() {
     localStorage.setItem("artwall_lang", lang);
   }, [lang]);
 
-  // Telegram User Authentication & Profile
+  useEffect(() => {
+    localStorage.setItem("artwall_users_directory", JSON.stringify(usersDirectory));
+  }, [usersDirectory]);
+
+  // Current Telegram User Authentication & Profile
   const [user, setUser] = useState<TelegramUser | null>(() => {
     try {
       const saved = localStorage.getItem("artwall_user");
@@ -53,16 +147,7 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
-    return {
-      id: 74829103,
-      first_name: "Elena",
-      last_name: "Rostova",
-      username: "elena_art_studio",
-      photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-      role: "artist",
-      bio: "Contemporary mixed media artist creating spatial dialogue through texture and light.",
-      location: "Tashkent Studio",
-    };
+    return null;
   });
 
   useEffect(() => {
@@ -140,6 +225,13 @@ export default function App() {
       const exists = prev.find((i) => i.artwork.id === artwork.id);
       if (exists) {
         // Remove if already in basket
+        setArtworks((arts) =>
+          arts.map((a) =>
+            a.id === artwork.id
+              ? { ...a, inBasketCount: Math.max(0, (a.inBasketCount || 0) - 1) }
+              : a
+          )
+        );
         return prev.filter((i) => i.artwork.id !== artwork.id);
       } else {
         const newItem: CartItem = {
@@ -152,6 +244,15 @@ export default function App() {
           selectedHeight: customConfig?.selectedHeight || artwork.height,
         };
 
+        // Increment inBasketCount in analytics
+        setArtworks((arts) =>
+          arts.map((a) =>
+            a.id === artwork.id
+              ? { ...a, inBasketCount: (a.inBasketCount || 0) + 1 }
+              : a
+          )
+        );
+
         if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
         }
@@ -163,9 +264,34 @@ export default function App() {
 
   const handleRemoveFromBasket = (artworkId: string) => {
     setCartItems((prev) => prev.filter((i) => i.artwork.id !== artworkId));
+    setArtworks((arts) =>
+      arts.map((a) =>
+        a.id === artworkId
+          ? { ...a, inBasketCount: Math.max(0, (a.inBasketCount || 0) - 1) }
+          : a
+      )
+    );
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
     }
+  };
+
+  // Analytics Tracker: View Count
+  const handleTrackView = (artworkId: string) => {
+    setArtworks((arts) =>
+      arts.map((a) =>
+        a.id === artworkId ? { ...a, viewsCount: (a.viewsCount || 0) + 1 } : a
+      )
+    );
+  };
+
+  // Analytics Tracker: AR Try Count
+  const handleTrackArTry = (artworkId: string) => {
+    setArtworks((arts) =>
+      arts.map((a) =>
+        a.id === artworkId ? { ...a, arTriesCount: (a.arTriesCount || 0) + 1 } : a
+      )
+    );
   };
 
   // Active artwork for 3D Wall view
@@ -188,19 +314,18 @@ export default function App() {
       tg.expand();
       tg.setHeaderColor("#F9F8F6");
 
-      // Read WebApp User if launched inside actual Telegram
-      if (tg.initDataUnsafe?.user) {
+      // Auto-extract user from Telegram WebApp if available
+      if (tg.initDataUnsafe?.user && !user) {
         const tgUser = tg.initDataUnsafe.user;
-        setUser((prev) => ({
+        setUser({
           id: tgUser.id,
           first_name: tgUser.first_name,
           last_name: tgUser.last_name,
           username: tgUser.username,
-          photo_url: tgUser.photo_url || prev?.photo_url,
-          role: prev?.role || "buyer",
-          bio: prev?.bio,
-          location: prev?.location,
-        }));
+          photo_url: tgUser.photo_url,
+          role: "buyer",
+          location: "Telegram",
+        });
       }
 
       // BackButton support
@@ -213,12 +338,37 @@ export default function App() {
         }
       }
     }
-  }, [currentTab]);
+  }, [currentTab, user]);
+
+  const handleCompleteOnboarding = (newUser: TelegramUser) => {
+    setUser(newUser);
+    setHasOnboarded(true);
+    setIsOnboardingOpen(false);
+    localStorage.setItem("artwall_onboarded", "true");
+
+    // Add to users directory if new
+    setUsersDirectory((prev) => {
+      const exists = prev.find((u) => u.id === newUser.id || u.username === newUser.username);
+      if (!exists) return [newUser, ...prev];
+      return prev.map((u) => (u.id === newUser.id ? newUser : u));
+    });
+
+    // Navigate to role-specific starting view
+    if (newUser.role === "artist") {
+      setCurrentTab("studio");
+    } else if (newUser.role === "admin") {
+      setCurrentTab("admin");
+    } else {
+      setCurrentTab("gallery");
+    }
+  };
 
   const handleViewOnWall = (artwork: Artwork, room?: string) => {
     setSelectedWallArtwork(artwork);
     if (room) setInitialRoomId(room);
     setDetailModalArtwork(null);
+    handleTrackView(artwork.id);
+    handleTrackArTry(artwork.id);
     setCurrentTab("visualizer");
   };
 
@@ -229,6 +379,70 @@ export default function App() {
   const handleDeleteArtwork = (id: string) => {
     setArtworks((prev) => prev.filter((a) => a.id !== id));
   };
+
+  const handleSwitchRole = (newRole: "buyer" | "artist" | "admin") => {
+    if (user) {
+      const updatedUser: TelegramUser = {
+        ...user,
+        role: newRole,
+      };
+      setUser(updatedUser);
+      localStorage.setItem("artwall_user", JSON.stringify(updatedUser));
+    } else {
+      const defaultUser =
+        defaultDirectoryUsers.find((u) => u.role === newRole) || defaultDirectoryUsers[0];
+      setUser(defaultUser);
+      localStorage.setItem("artwall_user", JSON.stringify(defaultUser));
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
+    }
+
+    // Direct the user immediately to their role's dedicated window
+    if (newRole === "artist") {
+      setCurrentTab("studio");
+    } else if (newRole === "admin") {
+      setCurrentTab("admin");
+    } else {
+      setCurrentTab("gallery");
+    }
+  };
+
+  const currentRole = user?.role || "buyer";
+
+  // Filter artworks strictly for this artist
+  const artistArtworks = artworks.filter((a) => {
+    if (!user) return true;
+    if (user.id && String(a.artistId) === String(user.id)) return true;
+    if (user.username && a.artistUsername && a.artistUsername.toLowerCase() === user.username.toLowerCase()) return true;
+    const fullName = `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""}`.trim().toLowerCase();
+    if (a.artistName && a.artistName.toLowerCase() === fullName) return true;
+    if (
+      (user.username === "elena_art_studio" || user.first_name.toLowerCase().includes("elena")) &&
+      (a.artistId === "artist-1" || a.artistUsername === "elena_art_studio")
+    ) {
+      return true;
+    }
+    return false;
+  });
+
+  // Strict window isolation: prevent cross-role tab viewing
+  useEffect(() => {
+    if (currentRole === "buyer") {
+      if (currentTab !== "gallery" && currentTab !== "visualizer") {
+        setCurrentTab("gallery");
+      }
+    } else if (currentRole === "artist") {
+      if (currentTab !== "studio" && currentTab !== "visualizer") {
+        setCurrentTab("studio");
+      }
+    } else if (currentRole === "admin") {
+      if (currentTab !== "admin" && currentTab !== "visualizer") {
+        setCurrentTab("admin");
+      }
+    }
+  }, [currentRole, currentTab]);
 
   return (
     <div className="min-h-screen bg-[#F9F8F6] text-[#1A1A1A] font-sans flex flex-col">
@@ -249,50 +463,186 @@ export default function App() {
         cartCount={cartItems.length}
       />
 
-      {/* Main Tab Content */}
+      {/* Main Window Content - Strictly Isolated By Role */}
       <main className="flex-1 w-full relative">
-        {currentTab === "gallery" && (
-          <Marketplace
-            artworks={artworks}
-            lang={lang}
-            onSelectArtwork={(art) => setDetailModalArtwork(art)}
-            onViewOnWall={(art) => handleViewOnWall(art)}
-            onAddToBasket={(art) => handleAddToBasket(art)}
-            onToggleLike={handleToggleLike}
-            likedIds={likedIds}
-            basketIds={basketIds}
-            onShare={(art) => setShareModalArtwork(art)}
-          />
+        {/* ==================== 1. BUYER WINDOW ==================== */}
+        {currentRole === "buyer" && (
+          <>
+            {currentTab === "gallery" && (
+              <Marketplace
+                artworks={artworks}
+                lang={lang}
+                onSelectArtwork={(art) => {
+                  handleTrackView(art.id);
+                  setDetailModalArtwork(art);
+                }}
+                onViewOnWall={(art) => handleViewOnWall(art)}
+                onAddToBasket={(art) => handleAddToBasket(art)}
+                onToggleLike={handleToggleLike}
+                likedIds={likedIds}
+                basketIds={basketIds}
+                onShare={(art) => setShareModalArtwork(art)}
+              />
+            )}
+
+            {currentTab === "visualizer" && (
+              <WallVisualizer
+                selectedArtwork={selectedWallArtwork}
+                allArtworks={artworks}
+                lang={lang}
+                onSelectArtwork={(art) => {
+                  setSelectedWallArtwork(art);
+                  handleTrackView(art.id);
+                }}
+                onAddToBasket={(art, config) => handleAddToBasket(art, config)}
+                isInBasket={
+                  selectedWallArtwork ? basketIds.has(selectedWallArtwork.id) : false
+                }
+                onOpenShareModal={(art) => setShareModalArtwork(art)}
+                initialRoomId={initialRoomId}
+                isLiked={selectedWallArtwork ? likedIds.has(selectedWallArtwork.id) : false}
+                onToggleLike={handleToggleLike}
+                onTrackArTry={handleTrackArTry}
+              />
+            )}
+          </>
         )}
 
-        {currentTab === "visualizer" && (
-          <WallVisualizer
-            selectedArtwork={selectedWallArtwork}
-            allArtworks={artworks}
-            lang={lang}
-            onSelectArtwork={(art) => setSelectedWallArtwork(art)}
-            onAddToBasket={(art, config) => handleAddToBasket(art, config)}
-            isInBasket={
-              selectedWallArtwork ? basketIds.has(selectedWallArtwork.id) : false
-            }
-            onOpenShareModal={(art) => setShareModalArtwork(art)}
-            initialRoomId={initialRoomId}
-          />
+        {/* ==================== 2. ARTIST WINDOW ==================== */}
+        {currentRole === "artist" && (
+          <>
+            {currentTab === "studio" && (
+              <ArtistStudio
+                user={user}
+                artworks={artworks}
+                lang={lang}
+                onOpenAuth={() => setIsAuthModalOpen(true)}
+                onAddArtwork={handleAddArtwork}
+                onDeleteArtwork={handleDeleteArtwork}
+                onViewOnWall={(art, room) => handleViewOnWall(art, room)}
+                onShare={(art) => setShareModalArtwork(art)}
+              />
+            )}
+
+            {currentTab === "visualizer" && (
+              <div>
+                <div className="bg-[#E8E6E1]/70 border-b border-[#D6D2C4] px-4 py-2 flex items-center justify-between text-xs">
+                  <span className="text-neutral-600 font-medium">
+                    Staging mode: Only your artworks ({artistArtworks.length} available)
+                  </span>
+                  <button
+                    onClick={() => setCurrentTab("studio")}
+                    className="font-bold text-[#1A1A1A] hover:underline"
+                  >
+                    ← Return to My Studio
+                  </button>
+                </div>
+                <WallVisualizer
+                  selectedArtwork={
+                    selectedWallArtwork && artistArtworks.some((a) => a.id === selectedWallArtwork.id)
+                      ? selectedWallArtwork
+                      : artistArtworks[0] || null
+                  }
+                  allArtworks={artistArtworks}
+                  lang={lang}
+                  onSelectArtwork={(art) => {
+                    setSelectedWallArtwork(art);
+                    handleTrackView(art.id);
+                  }}
+                  onAddToBasket={(art, config) => handleAddToBasket(art, config)}
+                  isInBasket={
+                    selectedWallArtwork ? basketIds.has(selectedWallArtwork.id) : false
+                  }
+                  onOpenShareModal={(art) => setShareModalArtwork(art)}
+                  initialRoomId={initialRoomId}
+                  isLiked={selectedWallArtwork ? likedIds.has(selectedWallArtwork.id) : false}
+                  onToggleLike={handleToggleLike}
+                  onTrackArTry={handleTrackArTry}
+                />
+              </div>
+            )}
+          </>
         )}
 
-        {currentTab === "studio" && (
-          <ArtistStudio
-            user={user}
-            artworks={artworks}
-            lang={lang}
-            onOpenAuth={() => setIsAuthModalOpen(true)}
-            onAddArtwork={handleAddArtwork}
-            onDeleteArtwork={handleDeleteArtwork}
-            onViewOnWall={(art, room) => handleViewOnWall(art, room)}
-            onShare={(art) => setShareModalArtwork(art)}
-          />
+        {/* ==================== 3. ADMIN WINDOW ==================== */}
+        {currentRole === "admin" && (
+          <>
+            {currentTab === "admin" && (
+              <AdminDashboard
+                artworks={artworks}
+                users={usersDirectory}
+                currentUser={user}
+                lang={lang}
+                onViewOnWall={(art) => handleViewOnWall(art)}
+              />
+            )}
+
+            {currentTab === "visualizer" && (
+              <div>
+                <div className="bg-[#1A1A1A] text-white px-4 py-2.5 flex items-center justify-between text-xs">
+                  <span className="text-neutral-300 font-medium">
+                    Admin Previewing Artwork in Wall AR: <strong className="text-white">{selectedWallArtwork?.title}</strong>
+                  </span>
+                  <button
+                    onClick={() => setCurrentTab("admin")}
+                    className="px-3 py-1 rounded-lg bg-white/20 hover:bg-white/30 text-white font-bold transition-colors"
+                  >
+                    ← Return to Admin Dashboard
+                  </button>
+                </div>
+                <WallVisualizer
+                  selectedArtwork={selectedWallArtwork}
+                  allArtworks={artworks}
+                  lang={lang}
+                  onSelectArtwork={(art) => {
+                    setSelectedWallArtwork(art);
+                    handleTrackView(art.id);
+                  }}
+                  onAddToBasket={(art, config) => handleAddToBasket(art, config)}
+                  isInBasket={
+                    selectedWallArtwork ? basketIds.has(selectedWallArtwork.id) : false
+                  }
+                  onOpenShareModal={(art) => setShareModalArtwork(art)}
+                  initialRoomId={initialRoomId}
+                  isLiked={selectedWallArtwork ? likedIds.has(selectedWallArtwork.id) : false}
+                  onToggleLike={handleToggleLike}
+                  onTrackArTry={handleTrackArTry}
+                />
+              </div>
+            )}
+          </>
         )}
       </main>
+
+      {/* Telegram Auth & Window Role Switcher Modal */}
+      {isAuthModalOpen && (
+        <TelegramAuthModal
+          currentUser={user}
+          onSaveUser={(updatedUser) => {
+            setUser(updatedUser);
+            localStorage.setItem("artwall_user", JSON.stringify(updatedUser));
+            setIsAuthModalOpen(false);
+            if (updatedUser.role === "artist") {
+              setCurrentTab("studio");
+            } else if (updatedUser.role === "admin") {
+              setCurrentTab("admin");
+            } else {
+              setCurrentTab("gallery");
+            }
+          }}
+          onClose={() => setIsAuthModalOpen(false)}
+          lang={lang}
+        />
+      )}
+
+      {/* Startup Onboarding Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingOpen}
+        onClose={() => setIsOnboardingOpen(false)}
+        currentUser={user}
+        onCompleteOnboarding={handleCompleteOnboarding}
+        lang={lang}
+      />
 
       {/* Artwork Details Modal */}
       <ArtworkDetailModal
@@ -319,15 +669,6 @@ export default function App() {
         lang={lang}
         onViewOnWall={(item) => handleViewOnWall(item.artwork)}
         user={user}
-      />
-
-      {/* Telegram Sign-In / Role Modal */}
-      <TelegramAuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        currentUser={user}
-        onSaveUser={setUser}
-        lang={lang}
       />
 
       {/* Cross-Platform Share Modal */}

@@ -61,6 +61,12 @@ export const TelegramAuthModal: React.FC<Props> = ({
       setUsername("elena_art_studio");
       setBio("Creating contemporary tactile abstractions and spatial installations.");
       setLocation("Studio 4B, Tashkent");
+    } else if (presetRole === "admin") {
+      setFirstName("Admin");
+      setLastName("ArtWall");
+      setUsername("artwall_admin");
+      setBio("Art Wall platform operations, curation & founder analytics.");
+      setLocation("Tashkent, Uzbekistan");
     } else {
       setFirstName("Damir");
       setLastName("Alimov");
@@ -95,49 +101,61 @@ export const TelegramAuthModal: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Role Switcher */}
+        {/* Role Window Switcher */}
         <div className="mb-6">
           <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block mb-2">
-            {t.switchRole}
+            Select Window & Account Role
           </label>
-          <div className="grid grid-cols-2 gap-2 bg-neutral-200/70 p-1 rounded-2xl">
+          <div className="grid grid-cols-3 gap-1.5 bg-neutral-200/70 p-1 rounded-2xl">
             <button
               type="button"
               onClick={() => setRole("buyer")}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
                 role === "buyer"
                   ? "bg-white text-neutral-900 shadow-sm"
                   : "text-neutral-600 hover:text-neutral-900"
               }`}
             >
-              <ShoppingBag size={15} />
-              {t.buyerRole}
+              <ShoppingBag size={14} />
+              <span>{t.buyerRole}</span>
             </button>
             <button
               type="button"
               onClick={() => setRole("artist")}
-              className={`py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all ${
+              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
                 role === "artist"
                   ? "bg-white text-neutral-900 shadow-sm"
                   : "text-neutral-600 hover:text-neutral-900"
               }`}
             >
-              <Palette size={15} />
-              {t.artistRole}
+              <Palette size={14} />
+              <span>{t.artistRole}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setRole("admin")}
+              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all ${
+                role === "admin"
+                  ? "bg-white text-neutral-900 shadow-sm"
+                  : "text-neutral-600 hover:text-neutral-900"
+              }`}
+            >
+              <ShieldCheck size={14} />
+              <span>{t.adminRole}</span>
             </button>
           </div>
         </div>
 
         {/* Quick Demo Pre-fill */}
         <div className="mb-5 p-3 rounded-2xl bg-[#E8E6E1]/60 border border-[#D6D2C4]/60 flex items-center justify-between">
-          <span className="text-xs text-neutral-600 font-medium">Quick switch persona:</span>
+          <span className="text-xs text-neutral-600 font-medium">Demo logins:</span>
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => loadPreset("buyer")}
               className="text-[11px] font-bold text-[#1A1A1A] underline hover:text-[#6B7B62]"
             >
-              Buyer Demo
+              Buyer
             </button>
             <span className="text-neutral-300">|</span>
             <button
@@ -145,7 +163,15 @@ export const TelegramAuthModal: React.FC<Props> = ({
               onClick={() => loadPreset("artist")}
               className="text-[11px] font-bold text-[#6B7B62] underline hover:text-[#5a6852]"
             >
-              Artist Demo
+              Artist
+            </button>
+            <span className="text-neutral-300">|</span>
+            <button
+              type="button"
+              onClick={() => loadPreset("admin")}
+              className="text-[11px] font-bold text-[#2D3748] underline hover:text-black"
+            >
+              Admin
             </button>
           </div>
         </div>

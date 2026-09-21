@@ -207,11 +207,34 @@ export const BasketDrawer: React.FC<Props> = ({
 
             <button
               onClick={handleTelegramCheckout}
-              className="w-full py-3.5 px-4 rounded-2xl bg-[#2AABEE] hover:bg-[#2299d4] text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#2AABEE]/25 transition-all"
+              className="w-full py-3.5 px-4 rounded-2xl bg-[#2AABEE] hover:bg-[#2299d4] text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#2AABEE]/25 transition-all cursor-pointer"
             >
               <Send size={16} />
               {t.checkoutTelegram}
             </button>
+
+            <div className="flex items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const orderLines = items.map(
+                    (item, idx) =>
+                      `${idx + 1}. "${item.artwork.title}" by ${item.artwork.artistName} - $${item.artwork.price} (${item.selectedWidth}x${item.selectedHeight}cm, ${item.frameMaterial} frame)`
+                  );
+                  const buyerName = user ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""} (@${user.username || "collector"})` : "Telegram Collector";
+                  const rawText = `Art Wall AR - New Artwork Order Inquiry\nBuyer: ${buyerName}\nItems:\n${orderLines.join("\n")}\nTotal: $${subtotal.toLocaleString()} USD\nDelivery & Framing Included`;
+                  navigator.clipboard.writeText(rawText);
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+                  }
+                  setCheckoutSuccess(true);
+                  setTimeout(() => setCheckoutSuccess(false), 2500);
+                }}
+                className="w-full py-2 px-3 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 text-[11px] font-medium transition-colors text-center cursor-pointer"
+              >
+                Copy Order Text to Clipboard
+              </button>
+            </div>
 
             <div className="flex items-center justify-center gap-1.5 text-[10px] text-neutral-400">
               <ShieldCheck size={12} className="text-[#6B7B62]" />

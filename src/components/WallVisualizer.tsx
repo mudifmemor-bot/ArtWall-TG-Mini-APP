@@ -10,12 +10,15 @@ import {
   RotateCcw,
   Box,
   Camera,
+  CameraOff,
+  RefreshCw,
   X,
   ShoppingBag,
   Check,
   Sparkles,
   Sliders,
   Layers,
+  AlertCircle,
 } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import { Artwork, Language, RoomPreset } from "../types";
@@ -102,6 +105,9 @@ interface Props {
   isInBasket: boolean;
   onOpenShareModal: (artwork: Artwork) => void;
   initialRoomId?: string;
+  isLiked?: boolean;
+  onToggleLike?: (id: string) => void;
+  onTrackArTry?: (id: string) => void;
 }
 
 export const WallVisualizer: React.FC<Props> = ({
@@ -113,13 +119,23 @@ export const WallVisualizer: React.FC<Props> = ({
   isInBasket,
   onOpenShareModal,
   initialRoomId,
+  isLiked = false,
+  onToggleLike,
+  onTrackArTry,
 }) => {
   const t = translations[lang];
 
+  const currentArtwork = selectedArtwork || allArtworks[0];
+
   const [activeTab, setActiveTab] = useState<"Upload" | "Size" | "Frame" | "Rooms" | null>(null);
   const [isARMode, setIsARMode] = useState(true);
-  const [showARInstructions, setShowARInstructions] = useState(false);
-  const [hasSeenARInstructions, setHasSeenARInstructions] = useState(false);
+
+  // Live Camera state
+  const [isLiveCameraActive, setIsLiveCameraActive] = useState(false);
+  const [cameraFacingMode, setCameraFacingMode] = useState<"environment" | "user">("environment");
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Background room preset
   const [bgImage, setBgImage] = useState(
@@ -129,29 +145,121 @@ export const WallVisualizer: React.FC<Props> = ({
   useEffect(() => {
     if (initialRoomId) {
       const found = roomPresets.find((r) => r.id === initialRoomId);
-      if (found) setBgImage(found.src);
+      if (found) {
+        setBgImage(found.src);
+        setIsLiveCameraActive(false);
+      }
     }
   }, [initialRoomId]);
 
+  // Track AR try when entering visualizer or changing artwork
+  useEffect(() => {
+    if (currentArtwork?.id && onTrackArTry) {
+      onTrackArTry(currentArtwork.id);
+    }
+  }, [currentArtwork?.id]);
+
+  // Live Camera Stream Lifecycle
+  const startLiveCamera = async (facing: "environment" | "user" = cameraFacingMode) => {
+    try {
+      setCameraError(null);
+      // Stop existing stream if any
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: facing },
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+      } catch (e) {
+        // Fallback for devices that don't support high-res constraints
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: facing },
+            audio: false,
+          });
+        } catch (e2) {
+          // Final fallback
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+        }
+      }
+
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play().catch((err) => {
+            console.warn("Video play error:", err);
+          });
+        };
+      }
+      setIsLiveCameraActive(true);
+      setIsARMode(true);
+
+      if (currentArtwork?.id && onTrackArTry) {
+        onTrackArTry(currentArtwork.id);
+      }
+    } catch (err: any) {
+      console.warn("Camera error:", err);
+      setCameraError(t.cameraAccessNeeded);
+      setIsLiveCameraActive(false);
+    }
+  };
+
+  const stopLiveCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    }
+    setIsLiveCameraActive(false);
+  };
+
+  const flipCamera = () => {
+    const nextFacing = cameraFacingMode === "environment" ? "user" : "environment";
+    setCameraFacingMode(nextFacing);
+    if (isLiveCameraActive) {
+      startLiveCamera(nextFacing);
+    }
+  };
+
+  // Clean up camera on unmount
+  useEffect(() => {
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, []);
+
   // Frame configuration
-  const [frameColor, setFrameColor] = useState(selectedArtwork?.defaultFrameColor || "#000000");
+  const [frameColor, setFrameColor] = useState(currentArtwork?.defaultFrameColor || "#000000");
   const [frameMaterial, setFrameMaterial] = useState<"solid" | "wood" | "metal" | "pattern">(
-    selectedArtwork?.defaultFrameMaterial || "solid"
+    currentArtwork?.defaultFrameMaterial || "solid"
   );
   const [frameThickness, setFrameThickness] = useState(2);
   const [mattingThickness, setMattingThickness] = useState(0);
-  const [artworkWidth, setArtworkWidth] = useState(selectedArtwork?.width || 60);
-  const [artworkHeight, setArtworkHeight] = useState(selectedArtwork?.height || 80);
+  const [artworkWidth, setArtworkWidth] = useState(currentArtwork?.width || 60);
+  const [artworkHeight, setArtworkHeight] = useState(currentArtwork?.height || 80);
 
   // Sync with artwork prop
   useEffect(() => {
-    if (selectedArtwork) {
-      if (selectedArtwork.defaultFrameColor) setFrameColor(selectedArtwork.defaultFrameColor);
-      if (selectedArtwork.defaultFrameMaterial) setFrameMaterial(selectedArtwork.defaultFrameMaterial);
-      if (selectedArtwork.width) setArtworkWidth(selectedArtwork.width);
-      if (selectedArtwork.height) setArtworkHeight(selectedArtwork.height);
+    if (currentArtwork) {
+      if (currentArtwork.defaultFrameColor) setFrameColor(currentArtwork.defaultFrameColor);
+      if (currentArtwork.defaultFrameMaterial) setFrameMaterial(currentArtwork.defaultFrameMaterial);
+      if (currentArtwork.width) setArtworkWidth(currentArtwork.width);
+      if (currentArtwork.height) setArtworkHeight(currentArtwork.height);
     }
-  }, [selectedArtwork]);
+  }, [currentArtwork]);
 
   // Transform / Drag / Rotate State
   const [dragPos, setDragPos] = useState({ x: 0, y: 0 });
@@ -278,6 +386,7 @@ export const WallVisualizer: React.FC<Props> = ({
       const reader = new FileReader();
       reader.onload = (event) => {
         setBgImage(event.target?.result as string);
+        stopLiveCamera();
         setIsARMode(true);
         setDragPos({ x: 0, y: 0 });
       };
@@ -304,8 +413,6 @@ export const WallVisualizer: React.FC<Props> = ({
 
   const canvasWidth = artworkWidth * displayScale;
   const canvasHeight = artworkHeight * displayScale;
-
-  const currentArtwork = selectedArtwork || allArtworks[0];
 
   const handleCaptureAndShare = async () => {
     setIsCapturing(true);
@@ -358,33 +465,71 @@ export const WallVisualizer: React.FC<Props> = ({
         isARMode ? "bg-black" : "bg-[#F9F8F6]"
       }`}
     >
-      {/* Immersive Room Background */}
-      {isARMode && bgImage && (
-        <img
-          src={bgImage}
-          alt="Room Environment"
-          className="absolute inset-0 w-full h-full object-cover sm:object-contain pointer-events-none z-0"
+      {/* Real-Time Live Camera Feed */}
+      {isLiveCameraActive ? (
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none z-0"
         />
+      ) : (
+        /* Immersive Room Background */
+        isARMode && bgImage && (
+          <img
+            src={bgImage}
+            alt="Room Environment"
+            className="absolute inset-0 w-full h-full object-cover sm:object-contain pointer-events-none z-0"
+          />
+        )
+      )}
+
+      {/* Camera Error / Permission Notice */}
+      {cameraError && (
+        <div className="absolute top-18 left-1/2 -translate-x-1/2 z-40 bg-black/80 text-white text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2 border border-white/20 backdrop-blur-md animate-in fade-in">
+          <AlertCircle size={15} className="text-amber-400 shrink-0" />
+          <span>{cameraError}</span>
+          <button
+            onClick={() => setCameraError(null)}
+            className="text-white/70 hover:text-white ml-2 font-bold"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       {/* Top Floating Staging Bar */}
       {!isCapturing && (
         <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
           {/* Artwork Info Pill */}
-          <div className="bg-white/90 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/60 shadow-lg pointer-events-auto flex items-center gap-3">
+          <div className="bg-white/90 backdrop-blur-md px-3 sm:px-3.5 py-2 rounded-2xl border border-white/60 shadow-lg pointer-events-auto flex items-center gap-2 sm:gap-3">
             <img
               src={currentArtwork.imageUrl}
               alt={currentArtwork.title}
               className="w-7 h-9 rounded-md object-cover ring-1 ring-neutral-200 shrink-0"
             />
             <div className="min-w-0 pr-1">
-              <span className="font-serif-custom text-xs sm:text-sm font-light italic text-[#1A1A1A] block leading-tight truncate max-w-[140px] sm:max-w-[200px]">
+              <span className="font-serif-custom text-xs sm:text-sm font-light italic text-[#1A1A1A] block leading-tight truncate max-w-[120px] sm:max-w-[180px]">
                 {currentArtwork.title}
               </span>
               <span className="text-[10px] text-neutral-500 block leading-none font-mono">
                 {artworkWidth}×{artworkHeight}cm • ${currentArtwork.price}
               </span>
             </div>
+
+            {/* Like button in visualizer */}
+            {onToggleLike && (
+              <button
+                onClick={() => onToggleLike(currentArtwork.id)}
+                className={`p-1.5 rounded-xl transition-all ${
+                  isLiked ? "bg-rose-50 text-rose-500" : "text-neutral-400 hover:text-rose-500"
+                }`}
+                title={t.like}
+              >
+                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+            )}
 
             {currentArtwork.price > 0 && (
               <button
@@ -412,18 +557,54 @@ export const WallVisualizer: React.FC<Props> = ({
             )}
           </div>
 
-          {/* Quick Actions (Reset, Toggle AR/Room, Share) */}
-          <div className="flex items-center gap-2 pointer-events-auto">
+          {/* Quick Actions (Live Camera, Reset, Toggle AR/Room, Share) */}
+          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+            {/* Live Camera Toggle */}
+            <button
+              onClick={() => {
+                if (isLiveCameraActive) {
+                  stopLiveCamera();
+                } else {
+                  startLiveCamera();
+                }
+              }}
+              className={`px-3 py-2 rounded-2xl backdrop-blur-md text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-lg transition-all ${
+                isLiveCameraActive
+                  ? "bg-rose-600 text-white border-rose-500 ring-2 ring-rose-400 animate-pulse"
+                  : "bg-white/90 text-neutral-800 border-white/60 hover:bg-white"
+              }`}
+              title={isLiveCameraActive ? t.stopCamera : t.liveCamera}
+            >
+              <Camera size={15} />
+              <span className="hidden md:inline">
+                {isLiveCameraActive ? t.stopCamera : t.liveCamera}
+              </span>
+            </button>
+
+            {/* Flip camera if active */}
+            {isLiveCameraActive && (
+              <button
+                onClick={flipCamera}
+                className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-800 border border-white/60 shadow-lg hover:scale-105 transition-all"
+                title={t.flipCamera}
+              >
+                <RefreshCw size={15} />
+              </button>
+            )}
+
             <button
               onClick={handleResetPose}
               className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-700 hover:text-black border border-white/60 shadow-lg hover:scale-105 transition-all"
               title={t.reset}
             >
-              <RotateCcw size={16} />
+              <RotateCcw size={15} />
             </button>
 
             <button
-              onClick={() => setIsARMode(!isARMode)}
+              onClick={() => {
+                if (isLiveCameraActive) stopLiveCamera();
+                setIsARMode(!isARMode);
+              }}
               className={`px-3 py-2 rounded-2xl backdrop-blur-md text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-lg transition-all ${
                 isARMode
                   ? "bg-[#1A1A1A] text-white border-black"
@@ -432,7 +613,20 @@ export const WallVisualizer: React.FC<Props> = ({
             >
               <Box size={14} />
               <span className="hidden sm:inline">
-                {isARMode ? "Room View" : "Neutral View"}
+                {isARMode ? "Room View" : "Neutral"}
+              </span>
+            </button>
+
+            {/* Quick Capture Snapshot Button */}
+            <button
+              onClick={handleCaptureAndShare}
+              disabled={isCapturing}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/90 hover:bg-white text-[#1A1A1A] border border-white/60 shadow-lg hover:scale-105 transition-all text-xs font-bold"
+              title={t.downloadSnapshot}
+            >
+              <Camera size={15} className={isCapturing ? "animate-pulse text-amber-500" : "text-[#6B7B62]"} />
+              <span className="hidden sm:inline">
+                {isCapturing ? t.saving : "Snapshot"}
               </span>
             </button>
 
@@ -441,16 +635,16 @@ export const WallVisualizer: React.FC<Props> = ({
               className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-700 hover:text-black border border-white/60 shadow-lg hover:scale-105 transition-all"
               title={t.share}
             >
-              <Share size={16} />
+              <Share size={15} />
             </button>
           </div>
         </div>
       )}
 
-      {/* AR Transform Control Switcher (Move / Rotate / Scale) */}
+      {/* AR Transform & Angle Presets Bar */}
       {isARMode && !isCapturing && (
-        <div className="absolute top-18 left-1/2 -translate-x-1/2 z-30 pointer-events-auto">
-          <div className="bg-white/90 backdrop-blur-md px-2 py-1.5 rounded-2xl border border-white/60 shadow-md flex items-center gap-1">
+        <div className="absolute top-18 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-1.5 max-w-[95vw]">
+          <div className="bg-white/90 backdrop-blur-md px-2 py-1 rounded-2xl border border-white/60 shadow-md flex items-center gap-1">
             {(["move", "rotate", "scale"] as const).map((mode) => (
               <button
                 key={mode}
@@ -464,6 +658,54 @@ export const WallVisualizer: React.FC<Props> = ({
                 {t[mode as keyof typeof t] || mode}
               </button>
             ))}
+
+            <div className="w-[1px] h-3.5 bg-neutral-300 mx-0.5" />
+
+            {/* Quick Angles */}
+            <button
+              onClick={() => {
+                setRotation({ rx: 0, ry: 0, rz: 0 });
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+                }
+              }}
+              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                rotation.ry === 0 && rotation.rx === 0
+                  ? "bg-[#6B7B62] text-white"
+                  : "text-neutral-600 hover:text-black"
+              }`}
+              title="Front Angle (0°)"
+            >
+              Front
+            </button>
+            <button
+              onClick={() => {
+                setRotation({ rx: 2, ry: -25, rz: 0 });
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+                }
+              }}
+              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                rotation.ry < -10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black"
+              }`}
+              title="Left Angle (30°)"
+            >
+              30° L
+            </button>
+            <button
+              onClick={() => {
+                setRotation({ rx: 2, ry: 25, rz: 0 });
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+                }
+              }}
+              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+                rotation.ry > 10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black"
+              }`}
+              title="Right Angle (30°)"
+            >
+              30° R
+            </button>
           </div>
         </div>
       )}
@@ -511,7 +753,7 @@ export const WallVisualizer: React.FC<Props> = ({
                 style={{
                   background: getMaterialStyle(),
                   transform: "translateZ(-24px)",
-                  boxShadow: "0 24px 48px rgba(0,0,0,0.35)",
+                  boxShadow: "0 24px 48px rgba(0,0,0,0.4)",
                 }}
               />
               {/* Top face */}
@@ -645,6 +887,19 @@ export const WallVisualizer: React.FC<Props> = ({
                   {t.environments}
                 </span>
 
+                {/* Live Camera Button inside Rooms tab too */}
+                <button
+                  onClick={() => {
+                    if (isLiveCameraActive) stopLiveCamera();
+                    else startLiveCamera();
+                    setActiveTab(null);
+                  }}
+                  className="w-full py-2.5 px-3 bg-[#1A1A1A] hover:bg-black text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+                >
+                  <Camera size={15} />
+                  {isLiveCameraActive ? t.stopCamera : t.startCamera}
+                </button>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => cameraFileInputRef.current?.click()}
@@ -658,7 +913,7 @@ export const WallVisualizer: React.FC<Props> = ({
                     className="py-2 px-3 bg-neutral-100 hover:bg-neutral-200 text-neutral-800 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1.5"
                   >
                     <Upload size={14} />
-                    Upload Wall
+                    {t.uploadCustomEnv}
                   </button>
                 </div>
 
@@ -681,16 +936,17 @@ export const WallVisualizer: React.FC<Props> = ({
                 <span className="text-[11px] font-medium text-neutral-600 mt-1">
                   {t.sampleRooms}
                 </span>
-                <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                <div className="grid grid-cols-2 gap-2 max-h-44 overflow-y-auto pr-1">
                   {roomPresets.map((room) => (
                     <button
                       key={room.id}
                       onClick={() => {
+                        stopLiveCamera();
                         setBgImage(room.src);
                         setIsARMode(true);
                       }}
                       className={`relative aspect-video rounded-xl overflow-hidden border transition-all ${
-                        bgImage === room.src
+                        !isLiveCameraActive && bgImage === room.src
                           ? "ring-2 ring-[#6B7B62] scale-95"
                           : "opacity-80 hover:opacity-100"
                       }`}
