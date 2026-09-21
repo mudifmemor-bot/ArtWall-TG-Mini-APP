@@ -1,6 +1,10 @@
 {
-  "name": "ArtWall",
-  "description": "",
-  "requestFramePermissions": [],
-  "majorCapabilities": []
+  "name": "ArtWallTGApp",
+  "description": "Telegram platform connecting artists and collectors to showcase, stage in 3D rooms and AR, and collect original artworks.",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }
