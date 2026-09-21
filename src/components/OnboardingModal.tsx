@@ -12,8 +12,16 @@ import {
   Heart,
   BarChart3,
   X,
+  Lock,
 } from "lucide-react";
-import { Language, TelegramUser, UserRole, MAX_ARTIST_UPLOADS } from "../types";
+import {
+  Language,
+  TelegramUser,
+  UserRole,
+  MAX_ARTIST_UPLOADS,
+  ADMIN_TELEGRAM_USERNAME,
+  isAuthorizedAdmin,
+} from "../types";
 import { translations } from "../translations";
 
 interface Props {
@@ -72,9 +80,9 @@ export const OnboardingModal: React.FC<Props> = ({
         setUsername("alex_collector");
         setBio("Art lover collecting tactile contemporary paintings.");
       } else if (role === "admin") {
-        setFirstName("Admin");
-        setLastName("ArtWall");
-        setUsername("artwall_admin");
+        setFirstName("Muxammadsiddiq");
+        setLastName("Admin");
+        setUsername(ADMIN_TELEGRAM_USERNAME);
         setBio("Platform founder & curator.");
       }
     }
@@ -87,18 +95,30 @@ export const OnboardingModal: React.FC<Props> = ({
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanUsername = username.replace("@", "").trim();
+    let finalRole = selectedRole;
+
+    if (finalRole === "admin" && cleanUsername.toLowerCase() !== ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+      alert(
+        lang === "ru"
+          ? `Роль администратора доступна только для Telegram-пользователя @${ADMIN_TELEGRAM_USERNAME}. Для других аккаунтов установлена роль Покупателя.`
+          : `Admin role is strictly restricted to @${ADMIN_TELEGRAM_USERNAME}. For other accounts, role is set to Buyer.`
+      );
+      finalRole = "buyer";
+    }
+
     const finalizedUser: TelegramUser = {
       id: currentUser?.id || tgWebAppUser?.id || Math.floor(10000000 + Math.random() * 90000000),
-      first_name: firstName.trim() || (selectedRole === "artist" ? "Artist" : "Collector"),
+      first_name: firstName.trim() || (finalRole === "artist" ? "Artist" : finalRole === "admin" ? "Muxammadsiddiq" : "Collector"),
       last_name: lastName.trim() || undefined,
-      username: username.replace("@", "").trim() || (selectedRole === "artist" ? "telegram_artist" : "telegram_buyer"),
+      username: cleanUsername || (finalRole === "artist" ? "telegram_artist" : finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : "telegram_buyer"),
       photo_url:
         currentUser?.photo_url ||
         tgWebAppUser?.photo_url ||
-        (selectedRole === "artist"
+        (finalRole === "artist"
           ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
           : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"),
-      role: selectedRole,
+      role: finalRole,
       bio: bio.trim(),
       location: location.trim(),
       createdAt: currentUser?.createdAt || new Date().toISOString(),
@@ -216,9 +236,15 @@ export const OnboardingModal: React.FC<Props> = ({
                     <BarChart3 size={16} />
                   </div>
                   <div>
-                    <span className="text-xs font-bold text-neutral-800 block">
-                      {t.adminRole} / Platform Analytics
-                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-xs font-bold text-neutral-800 block">
+                        {t.adminRole} / Platform Analytics
+                      </span>
+                      <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
+                        <Lock size={9} />
+                        @{ADMIN_TELEGRAM_USERNAME}
+                      </span>
+                    </div>
                     <span className="text-[11px] text-neutral-500 font-light">
                       {t.adminDesc}
                     </span>

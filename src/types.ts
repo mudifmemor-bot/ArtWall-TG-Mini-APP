@@ -4,6 +4,18 @@ export type UserRole = "buyer" | "artist" | "admin";
 
 export const MAX_ARTIST_UPLOADS = 7;
 
+// Only this Telegram username is permitted to access the admin role
+export const ADMIN_TELEGRAM_USERNAME = "muxammadsiddiq_23";
+
+export function isAuthorizedAdmin(userOrUsername?: string | { username?: string; role?: UserRole } | null): boolean {
+  if (!userOrUsername) return false;
+  const username = typeof userOrUsername === "string"
+    ? userOrUsername
+    : userOrUsername.username || "";
+  const normalized = username.replace(/^@/, "").trim().toLowerCase();
+  return normalized === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+}
+
 export interface TelegramUser {
   id: number;
   first_name: string;

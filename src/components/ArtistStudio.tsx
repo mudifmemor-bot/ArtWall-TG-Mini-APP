@@ -215,8 +215,11 @@ export const ArtistStudio: React.FC<Props> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={onOpenAuth}
-              className="py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold transition-colors"
+              onClick={() => {
+                onOpenAuth();
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className="min-h-[44px] py-2.5 px-4 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold transition-colors cursor-pointer active:scale-95"
             >
               Edit Profile
             </button>
@@ -224,19 +227,21 @@ export const ArtistStudio: React.FC<Props> = ({
               onClick={() => {
                 if (isUploadLimitReached) {
                   setShowQuotaNotice(true);
+                  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("warning");
                 } else {
                   setShowUploadModal(true);
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
                 }
               }}
-              className={`py-2.5 px-5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all ${
+              className={`min-h-[44px] py-2.5 px-4 sm:px-5 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-md transition-all cursor-pointer active:scale-95 ${
                 isUploadLimitReached
-                  ? "bg-neutral-200 text-neutral-600 hover:bg-neutral-300 cursor-pointer"
+                  ? "bg-neutral-200 text-neutral-600 hover:bg-neutral-300"
                   : "bg-[#1A1A1A] hover:bg-black text-white hover:scale-105"
               }`}
               title={isUploadLimitReached ? t.uploadLimitReached : undefined}
             >
               <Plus size={16} />
-              {t.uploadNewArtwork}
+              <span>{t.uploadNewArtwork}</span>
             </button>
           </div>
         </div>
@@ -731,25 +736,36 @@ export const ArtistStudio: React.FC<Props> = ({
                 {/* Action Buttons */}
                 <div className="pt-3 border-t border-neutral-100 flex items-center justify-between gap-2">
                   <button
-                    onClick={() => onViewOnWall(art)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs"
+                    onClick={() => {
+                      onViewOnWall(art);
+                      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                    }}
+                    className="flex-1 min-h-[44px] py-2.5 px-3 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-xs cursor-pointer active:scale-95"
                   >
-                    <Box size={14} />
-                    {t.stageAndShare}
+                    <Box size={15} />
+                    <span>{t.stageAndShare}</span>
                   </button>
 
                   <button
-                    onClick={() => onShare(art)}
-                    className="p-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors"
+                    onClick={() => {
+                      onShare(art);
+                      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                    }}
+                    className="min-w-[44px] min-h-[44px] rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
                     title={t.share}
+                    aria-label={t.share}
                   >
                     <Share2 size={16} />
                   </button>
 
                   <button
-                    onClick={() => onDeleteArtwork(art.id)}
-                    className="p-2 rounded-xl hover:bg-rose-50 text-neutral-400 hover:text-rose-500 transition-colors"
+                    onClick={() => {
+                      onDeleteArtwork(art.id);
+                      window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("medium");
+                    }}
+                    className="min-w-[44px] min-h-[44px] rounded-xl hover:bg-rose-50 text-neutral-400 hover:text-rose-500 transition-colors flex items-center justify-center cursor-pointer active:scale-95"
                     title="Delete"
+                    aria-label="Delete artwork"
                   >
                     <Trash2 size={16} />
                   </button>

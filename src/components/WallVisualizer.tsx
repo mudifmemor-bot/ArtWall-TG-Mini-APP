@@ -24,13 +24,14 @@ import * as htmlToImage from "html-to-image";
 import { Artwork, Language, RoomPreset } from "../types";
 import { translations } from "../translations";
 
-// Reusable Slider Component
+// Reusable Slider Component with Touch Buttons & Mobile Optimization
 const CustomSlider = ({
   label,
   value,
   unit,
   min,
   max,
+  step = 1,
   onChange,
 }: {
   label: string;
@@ -38,36 +39,74 @@ const CustomSlider = ({
   unit: string;
   min: number;
   max: number;
+  step?: number;
   onChange: (val: number) => void;
 }) => {
-  const percentage = ((value - min) / (max - min)) * 100;
+  const percentage = Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100));
+
+  const handleStep = (delta: number) => {
+    const next = Math.min(max, Math.max(min, Math.round((value + delta * step) * 10) / 10));
+    onChange(next);
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+  };
 
   return (
-    <div className="flex flex-col gap-2 w-full mb-4">
-      <div className="flex justify-between text-xs font-medium text-neutral-800">
-        <span>{label}</span>
-        <span className="font-mono">
+    <div className="flex flex-col gap-1.5 w-full mb-3.5">
+      <div className="flex justify-between items-center text-xs font-semibold text-neutral-800">
+        <span className="tracking-tight">{label}</span>
+        <span className="font-mono bg-neutral-100 px-2 py-0.5 rounded-md text-neutral-700 font-bold text-[11px]">
           {value}
           {unit}
         </span>
       </div>
-      <div className="relative w-full h-1 bg-[#E5E7EB] rounded-full flex items-center">
-        <div
-          className="absolute h-full bg-[#6B7B62] rounded-full pointer-events-none"
-          style={{ width: `${percentage}%` }}
-        />
-        <input
-          className="absolute w-full h-full opacity-0 cursor-pointer"
-          type="range"
-          min={min}
-          max={max}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
-        />
-        <div
-          className="absolute w-4 h-4 bg-[#6B7B62] rounded-full shadow-sm pointer-events-none transition-transform"
-          style={{ left: `calc(${percentage}% - 8px)` }}
-        />
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={() => handleStep(-1)}
+          className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold flex items-center justify-center text-sm cursor-pointer active:scale-95 transition-all shrink-0 select-none"
+          aria-label="Decrease"
+        >
+          -
+        </button>
+
+        <div className="relative flex-1 h-8 flex items-center touch-pan-x cursor-pointer">
+          {/* Track background */}
+          <div className="w-full h-2 bg-neutral-200 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-[#6B7B62] rounded-full pointer-events-none"
+              style={{ width: `${percentage}%` }}
+            />
+          </div>
+
+          <input
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={value}
+            onChange={(e) => {
+              onChange(Number(e.target.value));
+              window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+            }}
+          />
+
+          {/* Tactile Thumb */}
+          <div
+            className="absolute w-5 h-5 bg-white border-2 border-[#6B7B62] rounded-full shadow-md pointer-events-none transition-transform -translate-x-1/2"
+            style={{ left: `${percentage}%` }}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => handleStep(1)}
+          className="w-8 h-8 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 font-bold flex items-center justify-center text-sm cursor-pointer active:scale-95 transition-all shrink-0 select-none"
+          aria-label="Increase"
+        >
+          +
+        </button>
       </div>
     </div>
   );
@@ -269,9 +308,10 @@ export const WallVisualizer: React.FC<Props> = ({
   const [customScale, setCustomScale] = useState(1);
   const [isCapturing, setIsCapturing] = useState(false);
 
-  const [windowWidth, setWindowWidth] = useState(
-    typeof window !== "undefined" ? window.innerWidth : 1024
-  );
+  const [viewport, setViewport] = useState({
+    width: typeof window !== "undefined" ? window.innerWidth : 1024,
+    height: typeof window !== "undefined" ? window.innerHeight : 768,
+  });
 
   const dragRef = useRef<{
     startX: number;
@@ -296,9 +336,18 @@ export const WallVisualizer: React.FC<Props> = ({
   const cameraFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
+    const handleResize = () => {
+      setViewport({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      });
+    };
     window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    window.addEventListener("orientationchange", handleResize);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("orientationchange", handleResize);
+    };
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent) => {
@@ -322,7 +371,7 @@ export const WallVisualizer: React.FC<Props> = ({
 
     if (isARMode) {
       if (transformMode === "move") {
-        const factor = windowWidth < 600 ? 0.8 : 1.2;
+        const factor = viewport.width < 600 ? 0.8 : 1.2;
         setDragPos({
           x: dragRef.current.initialX + dx * factor,
           y: dragRef.current.initialY + dy * factor,
@@ -407,9 +456,15 @@ export const WallVisualizer: React.FC<Props> = ({
   };
 
   // Convert logical dimensions to display pixels (scaling factor)
-  const baseScale = windowWidth < 600 ? 2.0 : 3.8;
-  const arScaleFactor = windowWidth < 600 ? 1.6 : 3.0;
-  const displayScale = (isARMode ? arScaleFactor : baseScale) * customScale;
+  // Compute safe boundaries taking viewport and active UI bars into account
+  const maxAllowedW = viewport.width * (isARMode ? 0.76 : 0.82);
+  const maxAllowedH = Math.max(200, (viewport.height - 190) * (isARMode ? 0.68 : 0.74));
+  const fitScaleW = maxAllowedW / Math.max(1, artworkWidth);
+  const fitScaleH = maxAllowedH / Math.max(1, artworkHeight);
+  const maxNaturalScale = viewport.width < 640 ? 2.5 : 3.8;
+  const autoFitScale = Math.min(fitScaleW, fitScaleH, maxNaturalScale);
+
+  const displayScale = Math.max(0.8, autoFitScale * customScale);
 
   const canvasWidth = artworkWidth * displayScale;
   const canvasHeight = artworkHeight * displayScale;
@@ -501,39 +556,44 @@ export const WallVisualizer: React.FC<Props> = ({
 
       {/* Top Floating Staging Bar */}
       {!isCapturing && (
-        <div className="absolute top-4 left-4 right-4 z-30 flex items-center justify-between pointer-events-none">
-          {/* Artwork Info Pill */}
-          <div className="bg-white/90 backdrop-blur-md px-3 sm:px-3.5 py-2 rounded-2xl border border-white/60 shadow-lg pointer-events-auto flex items-center gap-2 sm:gap-3">
+        <div className="absolute top-2.5 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-30 flex items-center justify-between gap-1.5 sm:gap-3 pointer-events-none">
+          {/* Artwork Info Pill - Auto-adjusts width to screen size */}
+          <div className="bg-white/95 backdrop-blur-md px-2 sm:px-3.5 py-1.5 sm:py-2 rounded-2xl border border-white/80 shadow-lg pointer-events-auto flex items-center gap-1.5 sm:gap-2.5 min-w-0 max-w-[calc(100%-145px)] sm:max-w-md">
             <img
               src={currentArtwork.imageUrl}
               alt={currentArtwork.title}
-              className="w-7 h-9 rounded-md object-cover ring-1 ring-neutral-200 shrink-0"
+              className="w-7 h-8 sm:w-8 sm:h-9 rounded-lg object-cover ring-1 ring-neutral-200 shrink-0"
             />
-            <div className="min-w-0 pr-1">
-              <span className="font-serif-custom text-xs sm:text-sm font-light italic text-[#1A1A1A] block leading-tight truncate max-w-[120px] sm:max-w-[180px]">
+            <div className="min-w-0 flex-1 truncate pr-0.5">
+              <span className="font-serif-custom text-xs sm:text-sm font-light italic text-[#1A1A1A] block leading-tight truncate">
                 {currentArtwork.title}
               </span>
-              <span className="text-[10px] text-neutral-500 block leading-none font-mono">
+              <span className="text-[10px] sm:text-[11px] text-neutral-500 block leading-none font-mono mt-0.5 truncate">
                 {artworkWidth}×{artworkHeight}cm • ${currentArtwork.price}
               </span>
             </div>
 
-            {/* Like button in visualizer */}
+            {/* Favorite button */}
             {onToggleLike && (
               <button
-                onClick={() => onToggleLike(currentArtwork.id)}
-                className={`p-1.5 rounded-xl transition-all ${
+                onClick={() => {
+                  onToggleLike(currentArtwork.id);
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                }}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-xl transition-all cursor-pointer flex items-center justify-center shrink-0 ${
                   isLiked ? "bg-rose-50 text-rose-500" : "text-neutral-400 hover:text-rose-500"
                 }`}
                 title={t.like}
+                aria-label={t.like}
               >
-                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+                <Heart size={15} fill={isLiked ? "currentColor" : "none"} />
               </button>
             )}
 
+            {/* Basket Button */}
             {currentArtwork.price > 0 && (
               <button
-                onClick={() =>
+                onClick={() => {
                   onAddToBasket(currentArtwork, {
                     frameColor,
                     frameMaterial,
@@ -541,24 +601,26 @@ export const WallVisualizer: React.FC<Props> = ({
                     mattingThickness,
                     selectedWidth: artworkWidth,
                     selectedHeight: artworkHeight,
-                  })
-                }
-                className={`py-1.5 px-3 rounded-xl text-[10px] font-bold uppercase tracking-wider flex items-center gap-1 transition-all ${
+                  });
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("medium");
+                }}
+                className={`h-8 sm:h-9 px-2 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer shrink-0 ${
                   isInBasket
                     ? "bg-[#6B7B62] text-white"
                     : "bg-[#1A1A1A] hover:bg-black text-white"
                 }`}
+                title={isInBasket ? t.inBasket : t.addToBasket}
               >
-                {isInBasket ? <Check size={12} /> : <ShoppingBag size={12} />}
-                <span className="hidden sm:inline">
+                {isInBasket ? <Check size={13} /> : <ShoppingBag size={13} />}
+                <span className="hidden md:inline">
                   {isInBasket ? t.inBasket : t.addToBasket}
                 </span>
               </button>
             )}
           </div>
 
-          {/* Quick Actions (Live Camera, Reset, Toggle AR/Room, Share) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+          {/* Action Buttons Cluster - Auto-scaling buttons in a unified floating capsule */}
+          <div className="bg-white/95 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl border border-white/80 shadow-lg pointer-events-auto flex items-center gap-1 sm:gap-1.5 shrink-0">
             {/* Live Camera Toggle */}
             <button
               onClick={() => {
@@ -567,15 +629,16 @@ export const WallVisualizer: React.FC<Props> = ({
                 } else {
                   startLiveCamera();
                 }
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("medium");
               }}
-              className={`px-3 py-2 rounded-2xl backdrop-blur-md text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-lg transition-all ${
+              className={`h-8 sm:h-9 px-2 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 isLiveCameraActive
-                  ? "bg-rose-600 text-white border-rose-500 ring-2 ring-rose-400 animate-pulse"
-                  : "bg-white/90 text-neutral-800 border-white/60 hover:bg-white"
+                  ? "bg-rose-600 text-white shadow-xs animate-pulse"
+                  : "bg-neutral-100 hover:bg-neutral-200 text-neutral-800"
               }`}
               title={isLiveCameraActive ? t.stopCamera : t.liveCamera}
             >
-              <Camera size={15} />
+              <Camera size={14} className="shrink-0" />
               <span className="hidden md:inline">
                 {isLiveCameraActive ? t.stopCamera : t.liveCamera}
               </span>
@@ -585,94 +648,116 @@ export const WallVisualizer: React.FC<Props> = ({
             {isLiveCameraActive && (
               <button
                 onClick={flipCamera}
-                className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-800 border border-white/60 shadow-lg hover:scale-105 transition-all"
+                className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-all flex items-center justify-center cursor-pointer"
                 title={t.flipCamera}
               >
-                <RefreshCw size={15} />
+                <RefreshCw size={14} />
               </button>
             )}
 
-            <button
-              onClick={handleResetPose}
-              className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-700 hover:text-black border border-white/60 shadow-lg hover:scale-105 transition-all"
-              title={t.reset}
-            >
-              <RotateCcw size={15} />
-            </button>
-
+            {/* 3D Room / Neutral Wall Toggle */}
             <button
               onClick={() => {
                 if (isLiveCameraActive) stopLiveCamera();
                 setIsARMode(!isARMode);
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`px-3 py-2 rounded-2xl backdrop-blur-md text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 border shadow-lg transition-all ${
+              className={`h-8 sm:h-9 px-2 sm:px-3 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                 isARMode
-                  ? "bg-[#1A1A1A] text-white border-black"
-                  : "bg-white/90 text-neutral-800 border-white/60"
+                  ? "bg-[#1A1A1A] text-white"
+                  : "bg-neutral-100 hover:bg-neutral-200 text-neutral-800"
               }`}
+              title={isARMode ? "Room View" : "Neutral Wall"}
             >
-              <Box size={14} />
+              <Box size={14} className="shrink-0" />
               <span className="hidden sm:inline">
-                {isARMode ? "Room View" : "Neutral"}
+                {isARMode ? "Room" : "Neutral"}
               </span>
+            </button>
+
+            {/* Reset Pose */}
+            <button
+              onClick={() => {
+                handleResetPose();
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-black transition-all flex items-center justify-center cursor-pointer"
+              title={t.reset}
+              aria-label={t.reset}
+            >
+              <RotateCcw size={14} />
             </button>
 
             {/* Quick Capture Snapshot Button */}
             <button
-              onClick={handleCaptureAndShare}
+              onClick={() => {
+                handleCaptureAndShare();
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("medium");
+              }}
               disabled={isCapturing}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-2xl bg-white/90 hover:bg-white text-[#1A1A1A] border border-white/60 shadow-lg hover:scale-105 transition-all text-xs font-bold"
+              className="h-8 sm:h-9 px-2 sm:px-3 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 transition-all text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
               title={t.downloadSnapshot}
             >
-              <Camera size={15} className={isCapturing ? "animate-pulse text-amber-500" : "text-[#6B7B62]"} />
-              <span className="hidden sm:inline">
+              <Camera size={14} className={isCapturing ? "animate-pulse text-amber-500" : "text-[#6B7B62]"} />
+              <span className="hidden xl:inline">
                 {isCapturing ? t.saving : "Snapshot"}
               </span>
             </button>
 
+            {/* Share Button */}
             <button
-              onClick={() => onOpenShareModal(currentArtwork)}
-              className="p-2.5 rounded-2xl bg-white/90 backdrop-blur-md text-neutral-700 hover:text-black border border-white/60 shadow-lg hover:scale-105 transition-all"
+              onClick={() => {
+                onOpenShareModal(currentArtwork);
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-700 hover:text-black transition-all flex items-center justify-center cursor-pointer"
               title={t.share}
+              aria-label={t.share}
             >
-              <Share size={15} />
+              <Share size={14} />
             </button>
           </div>
         </div>
       )}
 
-      {/* AR Transform & Angle Presets Bar */}
+      {/* AR Transform & Angle Presets Bar - Automatically adjusts width & padding */}
       {isARMode && !isCapturing && (
-        <div className="absolute top-18 left-1/2 -translate-x-1/2 z-30 pointer-events-auto flex flex-col items-center gap-1.5 max-w-[95vw]">
-          <div className="bg-white/90 backdrop-blur-md px-2 py-1 rounded-2xl border border-white/60 shadow-md flex items-center gap-1">
+        <div className="absolute top-14 sm:top-18 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-1.5 max-w-[96vw]">
+          <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-white/80 shadow-md flex items-center gap-0.5 sm:gap-1 max-w-full overflow-x-auto scrollbar-none">
             {(["move", "rotate", "scale"] as const).map((mode) => (
               <button
                 key={mode}
-                onClick={() => setTransformMode(mode)}
-                className={`px-3 py-1 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all ${
+                onClick={() => {
+                  setTransformMode(mode);
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                }}
+                className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1 shrink-0 ${
                   transformMode === mode
                     ? "bg-[#1A1A1A] text-white shadow-xs"
-                    : "text-neutral-600 hover:text-neutral-900"
+                    : "text-neutral-600 hover:text-neutral-900 hover:bg-neutral-100"
                 }`}
               >
-                {t[mode as keyof typeof t] || mode}
+                {mode === "move" && <Move size={12} className="shrink-0" />}
+                {mode === "rotate" && <RotateCcw size={12} className="shrink-0" />}
+                {mode === "scale" && <Maximize size={12} className="shrink-0" />}
+                <span>
+                  {t[mode as keyof typeof t] || mode}
+                </span>
               </button>
             ))}
 
-            <div className="w-[1px] h-3.5 bg-neutral-300 mx-0.5" />
+            <div className="w-[1px] h-3.5 bg-neutral-200 mx-0.5 shrink-0" />
 
-            {/* Quick Angles */}
+            {/* Quick Angles with responsive sizing */}
             <button
               onClick={() => {
                 setRotation({ rx: 0, ry: 0, rz: 0 });
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
-                }
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
+              className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all shrink-0 ${
                 rotation.ry === 0 && rotation.rx === 0
                   ? "bg-[#6B7B62] text-white"
-                  : "text-neutral-600 hover:text-black"
+                  : "text-neutral-600 hover:text-black hover:bg-neutral-100"
               }`}
               title="Front Angle (0°)"
             >
@@ -681,12 +766,10 @@ export const WallVisualizer: React.FC<Props> = ({
             <button
               onClick={() => {
                 setRotation({ rx: 2, ry: -25, rz: 0 });
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
-                }
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
-                rotation.ry < -10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black"
+              className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all shrink-0 ${
+                rotation.ry < -10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black hover:bg-neutral-100"
               }`}
               title="Left Angle (30°)"
             >
@@ -695,18 +778,47 @@ export const WallVisualizer: React.FC<Props> = ({
             <button
               onClick={() => {
                 setRotation({ rx: 2, ry: 25, rz: 0 });
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
-                }
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`px-2 py-1 rounded-xl text-[10px] font-bold transition-all ${
-                rotation.ry > 10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black"
+              className={`h-7 sm:h-8 px-2 sm:px-2.5 rounded-xl text-[10px] sm:text-xs font-bold transition-all shrink-0 ${
+                rotation.ry > 10 ? "bg-[#6B7B62] text-white" : "text-neutral-600 hover:text-black hover:bg-neutral-100"
               }`}
               title="Right Angle (30°)"
             >
               30° R
             </button>
           </div>
+        </div>
+      )}
+
+      {/* Floating On-Canvas Quick Controls (Right Edge) */}
+      {!isCapturing && (
+        <div className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-20 pointer-events-auto flex flex-col items-center gap-1 bg-white/95 backdrop-blur-md p-1 sm:p-1.5 rounded-2xl border border-white/80 shadow-lg">
+          <button
+            onClick={() => {
+              setCustomScale((prev) => Math.min(2.5, Math.round((prev + 0.15) * 100) / 100));
+              window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold flex items-center justify-center text-sm active:scale-95 transition-all cursor-pointer"
+            title="Zoom In (+)"
+            aria-label="Zoom In"
+          >
+            +
+          </button>
+          <div className="text-[9px] sm:text-[10px] font-mono font-bold text-center text-neutral-500 select-none py-0.5">
+            {Math.round(customScale * 100)}%
+          </div>
+          <button
+            onClick={() => {
+              setCustomScale((prev) => Math.max(0.4, Math.round((prev - 0.15) * 100) / 100));
+              window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+            }}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 font-bold flex items-center justify-center text-sm active:scale-95 transition-all cursor-pointer"
+            title="Zoom Out (-)"
+            aria-label="Zoom Out"
+          >
+            -
+          </button>
         </div>
       )}
 
@@ -825,14 +937,37 @@ export const WallVisualizer: React.FC<Props> = ({
 
       {/* Contextual Popovers for Tabs */}
       {!isCapturing && (
-        <div className="absolute bottom-20 sm:bottom-24 left-0 w-full flex items-end justify-center pointer-events-none p-4 z-30">
+        <div className="absolute bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+56px)] sm:bottom-[calc(max(0.75rem,env(safe-area-inset-bottom))+64px)] left-0 w-full flex items-end justify-center pointer-events-none p-2 sm:p-4 z-30">
           <div
-            className={`bg-white/95 backdrop-blur-md p-5 rounded-3xl shadow-2xl border border-white/60 transition-all duration-300 ease-out w-full max-w-[340px] pointer-events-auto origin-bottom ${
+            className={`bg-white/95 backdrop-blur-xl p-3.5 sm:p-5 rounded-3xl shadow-2xl border border-neutral-200/80 transition-all duration-300 ease-out w-full max-w-[min(440px,calc(100vw-1rem))] max-h-[55vh] sm:max-h-[65vh] overflow-y-auto pointer-events-auto origin-bottom ${
               activeTab
                 ? "opacity-100 translate-y-0 scale-100"
                 : "opacity-0 translate-y-4 scale-95 pointer-events-none"
             }`}
           >
+            {/* Drawer Header with Close Button for effortless Mobile Dismissal */}
+            {activeTab && (
+              <div className="flex items-center justify-between pb-2.5 mb-3 border-b border-neutral-100">
+                <span className="text-xs font-bold uppercase tracking-wider text-neutral-800 flex items-center gap-1.5">
+                  {activeTab === "Upload" && <ImageIcon size={14} className="text-[#6B7B62]" />}
+                  {activeTab === "Rooms" && <Layers size={14} className="text-[#6B7B62]" />}
+                  {activeTab === "Frame" && <Square size={14} className="text-[#6B7B62]" />}
+                  {activeTab === "Size" && <Sliders size={14} className="text-[#6B7B62]" />}
+                  <span>{activeTab === "Upload" ? t.artwork : activeTab === "Rooms" ? t.roomsTab : activeTab === "Frame" ? t.frameTab : t.sizeTab}</span>
+                </span>
+                <button
+                  onClick={() => {
+                    setActiveTab(null);
+                    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                  }}
+                  className="w-7 h-7 rounded-full bg-neutral-100 hover:bg-neutral-200 text-neutral-600 flex items-center justify-center text-xs font-bold cursor-pointer transition-colors"
+                  aria-label="Close panel"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            )}
+
             {/* Art / Sample Selector Tab */}
             {activeTab === "Upload" && (
               <div className="flex flex-col gap-3">
@@ -996,15 +1131,18 @@ export const WallVisualizer: React.FC<Props> = ({
                   <span className="text-xs text-neutral-700 block mb-1.5">
                     {t.frameMaterial}
                   </span>
-                  <div className="grid grid-cols-4 gap-1.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                     {(["solid", "wood", "metal", "pattern"] as const).map((m) => (
                       <button
                         key={m}
-                        onClick={() => setFrameMaterial(m)}
-                        className={`py-1.5 px-2 rounded-xl text-[11px] font-medium capitalize transition-all ${
+                        onClick={() => {
+                          setFrameMaterial(m);
+                          window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                        }}
+                        className={`py-1.5 px-2 rounded-xl text-[11px] font-medium capitalize transition-all cursor-pointer ${
                           frameMaterial === m
                             ? "bg-[#1A1A1A] text-white"
-                            : "bg-neutral-100 text-neutral-700"
+                            : "bg-neutral-100 text-neutral-700 hover:bg-neutral-200"
                         }`}
                       >
                         {t[m as keyof typeof t]}
@@ -1081,56 +1219,68 @@ export const WallVisualizer: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Bottom Dock Navigation Tabs */}
+      {/* Bottom Dock Navigation Tabs - Automatically adjusts to screen size and layout */}
       {!isCapturing && (
-        <div className="absolute bottom-4 left-0 w-full flex justify-center z-30 pointer-events-auto px-4">
-          <div className="bg-white/95 backdrop-blur-md px-3 py-2 rounded-2xl border border-white/60 shadow-xl flex items-center gap-1.5">
+        <div className="absolute bottom-[max(0.75rem,env(safe-area-inset-bottom))] left-0 w-full flex justify-center z-30 pointer-events-auto px-2 sm:px-4">
+          <div className="bg-white/95 backdrop-blur-xl p-1 sm:p-1.5 rounded-2xl border border-neutral-200/80 shadow-2xl flex items-center gap-1 sm:gap-1.5 w-full max-w-[min(520px,calc(100vw-1rem))]">
             <button
-              onClick={() => setActiveTab(activeTab === "Upload" ? null : "Upload")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              onClick={() => {
+                setActiveTab(activeTab === "Upload" ? null : "Upload");
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className={`flex-1 min-h-[42px] sm:min-h-[46px] px-1 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer truncate ${
                 activeTab === "Upload"
                   ? "bg-[#1A1A1A] text-white shadow-xs"
                   : "text-neutral-700 hover:bg-neutral-100"
               }`}
             >
-              <ImageIcon size={15} />
-              <span>{t.uploadTab}</span>
+              <ImageIcon size={15} className="shrink-0" />
+              <span className="truncate">{t.uploadTab}</span>
             </button>
 
             <button
-              onClick={() => setActiveTab(activeTab === "Rooms" ? null : "Rooms")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              onClick={() => {
+                setActiveTab(activeTab === "Rooms" ? null : "Rooms");
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className={`flex-1 min-h-[42px] sm:min-h-[46px] px-1 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer truncate ${
                 activeTab === "Rooms"
                   ? "bg-[#1A1A1A] text-white shadow-xs"
                   : "text-neutral-700 hover:bg-neutral-100"
               }`}
             >
-              <Layers size={15} />
-              <span>{t.roomsTab}</span>
+              <Layers size={15} className="shrink-0" />
+              <span className="truncate">{t.roomsTab}</span>
             </button>
 
             <button
-              onClick={() => setActiveTab(activeTab === "Frame" ? null : "Frame")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              onClick={() => {
+                setActiveTab(activeTab === "Frame" ? null : "Frame");
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className={`flex-1 min-h-[42px] sm:min-h-[46px] px-1 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer truncate ${
                 activeTab === "Frame"
                   ? "bg-[#1A1A1A] text-white shadow-xs"
                   : "text-neutral-700 hover:bg-neutral-100"
               }`}
             >
-              <Square size={15} />
-              <span>{t.frameTab}</span>
+              <Square size={15} className="shrink-0" />
+              <span className="truncate">{t.frameTab}</span>
             </button>
 
             <button
-              onClick={() => setActiveTab(activeTab === "Size" ? null : "Size")}
-              className={`px-3 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+              onClick={() => {
+                setActiveTab(activeTab === "Size" ? null : "Size");
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+              }}
+              className={`flex-1 min-h-[42px] sm:min-h-[46px] px-1 sm:px-3 py-2 rounded-xl text-[10px] sm:text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1 sm:gap-1.5 cursor-pointer truncate ${
                 activeTab === "Size"
                   ? "bg-[#1A1A1A] text-white shadow-xs"
                   : "text-neutral-700 hover:bg-neutral-100"
               }`}
             >
-              <Sliders size={15} />
-              <span>{t.sizeTab}</span>
+              <Sliders size={15} className="shrink-0" />
+              <span className="truncate">{t.sizeTab}</span>
             </button>
           </div>
         </div>

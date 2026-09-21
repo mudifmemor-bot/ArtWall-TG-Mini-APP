@@ -9,7 +9,17 @@ import { OnboardingModal } from "./components/OnboardingModal";
 import { AdminDashboard } from "./components/AdminDashboard";
 import { ArtworkDetailModal } from "./components/ArtworkDetailModal";
 import { ShareModal } from "./components/ShareModal";
-import { Artwork, CartItem, Language, TelegramUser } from "./types";
+import { ProfileView } from "./components/ProfileView";
+import { RoleSwitcherModal } from "./components/RoleSwitcherModal";
+import {
+  Artwork,
+  CartItem,
+  Language,
+  TelegramUser,
+  UserRole,
+  ADMIN_TELEGRAM_USERNAME,
+  isAuthorizedAdmin,
+} from "./types";
 import { initialArtworks } from "./data/mockArtworks";
 
 declare global {
@@ -80,12 +90,13 @@ const defaultDirectoryUsers: TelegramUser[] = [
   },
   {
     id: 999,
-    first_name: "Admin",
-    last_name: "Curator",
-    username: "artwall_admin",
+    first_name: "Muxammadsiddiq",
+    last_name: "Admin",
+    username: ADMIN_TELEGRAM_USERNAME,
     photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
     role: "admin",
-    location: "HQ",
+    bio: "Chief curator & Art Wall platform operations administrator.",
+    location: "HQ Tashkent",
   },
 ];
 
@@ -95,7 +106,9 @@ export default function App() {
     return (saved as Language) || "en";
   });
 
-  const [currentTab, setCurrentTab] = useState<"gallery" | "visualizer" | "studio" | "basket" | "admin">("gallery");
+  const [currentTab, setCurrentTab] = useState<"gallery" | "visualizer" | "studio" | "basket" | "admin" | "profile">("gallery");
+  const [targetProfileUser, setTargetProfileUser] = useState<TelegramUser | null>(null);
+  const [previousTabBeforeProfile, setPreviousTabBeforeProfile] = useState<"gallery" | "visualizer" | "studio" | "admin">("gallery");
 
   // Onboarding startup state
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(() => {
@@ -120,7 +133,20 @@ export default function App() {
   const [usersDirectory, setUsersDirectory] = useState<TelegramUser[]>(() => {
     try {
       const saved = localStorage.getItem("artwall_users_directory");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: TelegramUser[] = JSON.parse(saved);
+        return parsed.map((u) => {
+          if (u.role === "admin" && !isAuthorizedAdmin(u)) {
+            // If it was the legacy admin, update to @muxammadsiddiq_23
+            if (u.username === "artwall_admin") {
+              return { ...u, username: ADMIN_TELEGRAM_USERNAME, first_name: "Muxammadsiddiq" };
+            }
+            // Otherwise, downgrade non-authorized admin to buyer
+            return { ...u, role: "buyer" as const };
+          }
+          return u;
+        });
+      }
     } catch (e) {
       console.error(e);
     }
@@ -140,15 +166,35 @@ export default function App() {
   }, [usersDirectory]);
 
   // Current Telegram User Authentication & Profile
+  // CRITICAL CONSTRAINT: Only @muxammadsiddiq_23 is accessible for admin account;
+  // all other accounts can only be either artist or buyer.
   const [user, setUser] = useState<TelegramUser | null>(() => {
     try {
       const saved = localStorage.getItem("artwall_user");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: TelegramUser = JSON.parse(saved);
+        if (parsed.role === "admin" && !isAuthorizedAdmin(parsed)) {
+          if (parsed.username === "artwall_admin") {
+            parsed.username = ADMIN_TELEGRAM_USERNAME;
+            parsed.first_name = "Muxammadsiddiq";
+          } else {
+            parsed.role = "buyer";
+          }
+        }
+        return parsed;
+      }
     } catch (e) {
       console.error(e);
     }
     return null;
   });
+
+  // Strict route protection: redirect away from admin if user is not authorized
+  useEffect(() => {
+    if (currentTab === "admin" && !isAuthorizedAdmin(user)) {
+      setCurrentTab("gallery");
+    }
+  }, [currentTab, user]);
 
   useEffect(() => {
     if (user) {
@@ -305,6 +351,7 @@ export default function App() {
   const [shareModalArtwork, setShareModalArtwork] = useState<Artwork | null>(null);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isBasketDrawerOpen, setIsBasketDrawerOpen] = useState(false);
+  const [isRoleSwitcherOpen, setIsRoleSwitcherOpen] = useState(false);
 
   // Telegram WebApp Setup
   useEffect(() => {
@@ -332,7 +379,14 @@ export default function App() {
       if (tg.BackButton) {
         if (currentTab !== "gallery") {
           tg.BackButton.show();
-          tg.BackButton.onClick(() => setCurrentTab("gallery"));
+          tg.BackButton.onClick(() => {
+            if (currentTab === "profile" && targetProfileUser) {
+              setTargetProfileUser(null);
+              setCurrentTab(previousTabBeforeProfile || "gallery");
+            } else {
+              setCurrentTab("gallery");
+            }
+          });
         } else {
           tg.BackButton.hide();
         }
@@ -341,22 +395,26 @@ export default function App() {
   }, [currentTab, user]);
 
   const handleCompleteOnboarding = (newUser: TelegramUser) => {
-    setUser(newUser);
+    const sanitizedUser: TelegramUser = {
+      ...newUser,
+      role: newUser.role === "admin" && !isAuthorizedAdmin(newUser) ? "buyer" : newUser.role,
+    };
+    setUser(sanitizedUser);
     setHasOnboarded(true);
     setIsOnboardingOpen(false);
     localStorage.setItem("artwall_onboarded", "true");
 
     // Add to users directory if new
     setUsersDirectory((prev) => {
-      const exists = prev.find((u) => u.id === newUser.id || u.username === newUser.username);
-      if (!exists) return [newUser, ...prev];
-      return prev.map((u) => (u.id === newUser.id ? newUser : u));
+      const exists = prev.find((u) => u.id === sanitizedUser.id || u.username === sanitizedUser.username);
+      if (!exists) return [sanitizedUser, ...prev];
+      return prev.map((u) => (u.id === sanitizedUser.id ? sanitizedUser : u));
     });
 
     // Navigate to role-specific starting view
-    if (newUser.role === "artist") {
+    if (sanitizedUser.role === "artist") {
       setCurrentTab("studio");
-    } else if (newUser.role === "admin") {
+    } else if (sanitizedUser.role === "admin") {
       setCurrentTab("admin");
     } else {
       setCurrentTab("gallery");
@@ -380,29 +438,149 @@ export default function App() {
     setArtworks((prev) => prev.filter((a) => a.id !== id));
   };
 
-  const handleSwitchRole = (newRole: "buyer" | "artist" | "admin") => {
+  const handleSaveUser = (updatedUser: TelegramUser) => {
+    // Security check: only @muxammadsiddiq_23 is allowed to possess admin role
+    const sanitizedUser: TelegramUser = {
+      ...updatedUser,
+      role: updatedUser.role === "admin" && !isAuthorizedAdmin(updatedUser) ? "buyer" : updatedUser.role,
+    };
+    setUser(sanitizedUser);
+    localStorage.setItem("artwall_user", JSON.stringify(sanitizedUser));
+    setUsersDirectory((prev) => {
+      const exists = prev.find((u) => u.id === sanitizedUser.id);
+      if (exists) {
+        return prev.map((u) => (u.id === sanitizedUser.id ? sanitizedUser : u));
+      }
+      return [sanitizedUser, ...prev];
+    });
+  };
+
+  const handleViewArtistProfile = (artwork: Artwork) => {
+    const existing = usersDirectory.find(
+      (u) =>
+        (artwork.artistId && String(u.id) === String(artwork.artistId)) ||
+        (artwork.artistUsername && u.username && u.username.toLowerCase() === artwork.artistUsername.toLowerCase()) ||
+        (`${u.first_name}${u.last_name ? ` ${u.last_name}` : ""}`.toLowerCase() === (artwork.artistName || "").toLowerCase())
+    );
+
+    const targetUser: TelegramUser = existing || {
+      id: artwork.artistId ? Number(artwork.artistId) || 8888 : 8888,
+      first_name: artwork.artistName.split(" ")[0] || artwork.artistName,
+      last_name: artwork.artistName.split(" ").slice(1).join(" ") || undefined,
+      username: artwork.artistUsername || "artwall_artist",
+      photo_url: artwork.artistAvatar,
+      role: "artist",
+      bio: `Contemporary artist showcasing original collections including "${artwork.title}" on Art Wall AR.`,
+      location: "Tashkent / Studio Central",
+    };
+
+    if (currentTab !== "profile") {
+      setPreviousTabBeforeProfile(currentTab === "visualizer" || currentTab === "studio" || currentTab === "admin" ? currentTab : "gallery");
+    }
+    setTargetProfileUser(targetUser);
+    setCurrentTab("profile");
+    setDetailModalArtwork(null);
+  };
+
+  const handleViewUserProfile = (targetUser: TelegramUser) => {
+    if (currentTab !== "profile") {
+      setPreviousTabBeforeProfile(currentTab === "visualizer" || currentTab === "studio" || currentTab === "admin" ? currentTab : "gallery");
+    }
+    setTargetProfileUser(targetUser);
+    setCurrentTab("profile");
+  };
+
+  const handleSwitchRole = (newRole: "buyer" | "artist" | "admin", navigateToWindow = true) => {
+    // STRICT SECURITY RULE: Only Telegram user @muxammadsiddiq_23 is accessible for admin account;
+    // all other accounts can only be either artist or buyer.
+    if (newRole === "admin" && !isAuthorizedAdmin(user)) {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+      }
+      alert(
+        lang === "ru"
+          ? "Доступ ограничен: только Telegram-пользователь @muxammadsiddiq_23 имеет доступ к панели администратора. Все остальные аккаунты могут быть только художниками или покупателями."
+          : lang === "uz"
+          ? "Kirish cheklangan: faqat @muxammadsiddiq_23 Telegram foydalanuvchisi admin hisobiga kira oladi. Boshqa foydalanuvchilar faqat rassom yoki xaridor bo'lishi mumkin."
+          : "Access restricted: Only Telegram user @muxammadsiddiq_23 has access to the Admin account. All other accounts can only be either Artist or Buyer."
+      );
+      return;
+    }
+
+    let updatedUser: TelegramUser;
     if (user) {
-      const updatedUser: TelegramUser = {
+      updatedUser = {
         ...user,
         role: newRole,
       };
-      setUser(updatedUser);
-      localStorage.setItem("artwall_user", JSON.stringify(updatedUser));
+      if (newRole === "artist" && (!updatedUser.bio || updatedUser.bio.includes("collect"))) {
+        updatedUser.bio = "Contemporary mixed media artist creating spatial dialogue through texture and light.";
+      }
     } else {
-      const defaultUser =
+      updatedUser =
         defaultDirectoryUsers.find((u) => u.role === newRole) || defaultDirectoryUsers[0];
-      setUser(defaultUser);
-      localStorage.setItem("artwall_user", JSON.stringify(defaultUser));
     }
+
+    setUser(updatedUser);
+    localStorage.setItem("artwall_user", JSON.stringify(updatedUser));
+
+    // Keep user directory synced
+    setUsersDirectory((prev) => {
+      const exists = prev.find((u) => u.id === updatedUser.id);
+      const next = exists
+        ? prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
+        : [updatedUser, ...prev];
+      localStorage.setItem("artwall_users_directory", JSON.stringify(next));
+      return next;
+    });
+
+    setTargetProfileUser(null);
 
     if (window.Telegram?.WebApp?.HapticFeedback) {
-      window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
     }
 
-    // Direct the user immediately to their role's dedicated window
-    if (newRole === "artist") {
+    // Direct user to role window if navigation requested
+    if (navigateToWindow) {
+      if (newRole === "artist") {
+        setCurrentTab("studio");
+      } else if (newRole === "admin") {
+        setCurrentTab("admin");
+      } else {
+        setCurrentTab("gallery");
+      }
+    }
+  };
+
+  const handleSwitchToPreset = (presetUser: TelegramUser) => {
+    let sanitized = { ...presetUser };
+    if (sanitized.role === "admin" && !isAuthorizedAdmin(sanitized)) {
+      sanitized = {
+        ...sanitized,
+        username: ADMIN_TELEGRAM_USERNAME,
+        first_name: "Muxammadsiddiq",
+      };
+    }
+
+    setUser(sanitized);
+    localStorage.setItem("artwall_user", JSON.stringify(sanitized));
+    setTargetProfileUser(null);
+    setUsersDirectory((prev) => {
+      const exists = prev.find((u) => u.id === sanitized.id);
+      const next = exists
+        ? prev.map((u) => (u.id === sanitized.id ? sanitized : u))
+        : [sanitized, ...prev];
+      localStorage.setItem("artwall_users_directory", JSON.stringify(next));
+      return next;
+    });
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+    }
+
+    if (sanitized.role === "artist") {
       setCurrentTab("studio");
-    } else if (newRole === "admin") {
+    } else if (sanitized.role === "admin") {
       setCurrentTab("admin");
     } else {
       setCurrentTab("gallery");
@@ -427,18 +605,18 @@ export default function App() {
     return false;
   });
 
-  // Strict window isolation: prevent cross-role tab viewing
+  // Window isolation: allow "profile" in all roles, prevent unauthorized cross-role tabs
   useEffect(() => {
     if (currentRole === "buyer") {
-      if (currentTab !== "gallery" && currentTab !== "visualizer") {
+      if (currentTab !== "gallery" && currentTab !== "visualizer" && currentTab !== "profile") {
         setCurrentTab("gallery");
       }
     } else if (currentRole === "artist") {
-      if (currentTab !== "studio" && currentTab !== "visualizer") {
+      if (currentTab !== "studio" && currentTab !== "visualizer" && currentTab !== "profile") {
         setCurrentTab("studio");
       }
     } else if (currentRole === "admin") {
-      if (currentTab !== "admin" && currentTab !== "visualizer") {
+      if (currentTab !== "admin" && currentTab !== "visualizer" && currentTab !== "profile") {
         setCurrentTab("admin");
       }
     }
@@ -452,6 +630,9 @@ export default function App() {
         onSelectTab={(tab) => {
           if (tab === "basket") {
             setIsBasketDrawerOpen(true);
+          } else if (tab === "profile") {
+            setTargetProfileUser(null);
+            setCurrentTab("profile");
           } else {
             setCurrentTab(tab);
           }
@@ -461,10 +642,41 @@ export default function App() {
         user={user}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         cartCount={cartItems.length}
+        onOpenRoleSwitcher={() => setIsRoleSwitcherOpen(true)}
+        onSwitchRole={(role) => handleSwitchRole(role, true)}
       />
 
-      {/* Main Window Content - Strictly Isolated By Role */}
-      <main className="flex-1 w-full relative">
+      {/* Main Window Content */}
+      <main className={`flex-1 w-full relative ${currentTab === "visualizer" ? "pb-0 overflow-hidden" : "pb-24 md:pb-8"}`}>
+        {/* ==================== PROFILE VIEW (Accessible across all roles) ==================== */}
+        {currentTab === "profile" && (
+          <ProfileView
+            currentUser={user}
+            targetUser={targetProfileUser}
+            artworks={artworks}
+            cartItems={cartItems}
+            likedIds={likedIds}
+            basketIds={basketIds}
+            lang={lang}
+            onSaveUser={handleSaveUser}
+            onSwitchRole={(role) => handleSwitchRole(role)}
+            onSelectArtwork={(art) => {
+              handleTrackView(art.id);
+              setDetailModalArtwork(art);
+            }}
+            onViewOnWall={(art) => handleViewOnWall(art)}
+            onAddToBasket={(art) => handleAddToBasket(art)}
+            onToggleLike={handleToggleLike}
+            onOpenBasketDrawer={() => setIsBasketDrawerOpen(true)}
+            onOpenAuth={() => setIsAuthModalOpen(true)}
+            onBackToPrevious={() => {
+              setTargetProfileUser(null);
+              setCurrentTab(previousTabBeforeProfile || (currentRole === "artist" ? "studio" : currentRole === "admin" ? "admin" : "gallery"));
+            }}
+            onShareArtwork={(art) => setShareModalArtwork(art)}
+            onOpenStudio={() => setCurrentTab("studio")}
+          />
+        )}
         {/* ==================== 1. BUYER WINDOW ==================== */}
         {currentRole === "buyer" && (
           <>
@@ -482,6 +694,7 @@ export default function App() {
                 likedIds={likedIds}
                 basketIds={basketIds}
                 onShare={(art) => setShareModalArtwork(art)}
+                onViewArtistProfile={handleViewArtistProfile}
               />
             )}
 
@@ -574,6 +787,7 @@ export default function App() {
                 currentUser={user}
                 lang={lang}
                 onViewOnWall={(art) => handleViewOnWall(art)}
+                onViewProfile={handleViewUserProfile}
               />
             )}
 
@@ -657,6 +871,7 @@ export default function App() {
         }
         onViewOnWall={(art) => handleViewOnWall(art)}
         onShare={(art) => setShareModalArtwork(art)}
+        onViewArtistProfile={handleViewArtistProfile}
       />
 
       {/* Basket Drawer */}
@@ -676,6 +891,16 @@ export default function App() {
         isOpen={!!shareModalArtwork}
         onClose={() => setShareModalArtwork(null)}
         artwork={shareModalArtwork}
+        lang={lang}
+      />
+
+      {/* Global Instant Role Switcher Modal */}
+      <RoleSwitcherModal
+        isOpen={isRoleSwitcherOpen}
+        onClose={() => setIsRoleSwitcherOpen(false)}
+        currentUser={user}
+        onSwitchRole={(role, navigate) => handleSwitchRole(role, navigate)}
+        onSwitchToPreset={handleSwitchToPreset}
         lang={lang}
       />
     </div>

@@ -26,6 +26,7 @@ interface Props {
   currentUser: TelegramUser | null;
   lang: Language;
   onViewOnWall: (artwork: Artwork) => void;
+  onViewProfile?: (user: TelegramUser) => void;
 }
 
 export const AdminDashboard: React.FC<Props> = ({
@@ -34,6 +35,7 @@ export const AdminDashboard: React.FC<Props> = ({
   currentUser,
   lang,
   onViewOnWall,
+  onViewProfile,
 }) => {
   const t = translations[lang];
 
@@ -267,40 +269,45 @@ export const AdminDashboard: React.FC<Props> = ({
           </div>
 
           {/* Action bar: Search, Filter, Export */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="relative flex items-center">
-              <Search size={14} className="absolute left-3 text-neutral-400" />
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto">
+            <div className="relative flex items-center flex-1 sm:flex-initial">
+              <Search size={16} className="absolute left-3 text-neutral-400 pointer-events-none" />
               <input
                 type="text"
                 value={tableSearch}
                 onChange={(e) => setTableSearch(e.target.value)}
                 placeholder="Search artwork or artist..."
-                className="pl-8 pr-3 py-1.5 rounded-xl bg-neutral-100 border border-transparent focus:border-neutral-300 text-xs focus:outline-none w-44 sm:w-56"
+                className="w-full sm:w-56 min-h-[44px] pl-9 pr-3 py-2 rounded-xl bg-neutral-100 border border-transparent focus:border-neutral-300 text-xs focus:outline-none"
               />
             </div>
 
-            <select
-              value={tableCategory}
-              onChange={(e) => setTableCategory(e.target.value)}
-              className="py-1.5 px-3 rounded-xl bg-neutral-100 border border-transparent text-xs text-neutral-700 focus:outline-none capitalize"
-            >
-              <option value="all">All Styles</option>
-              <option value="abstract">Abstract</option>
-              <option value="modern">Modern</option>
-              <option value="landscape">Landscape</option>
-              <option value="minimalist">Minimalist</option>
-              <option value="portrait">Portrait</option>
-              <option value="classic">Classical</option>
-            </select>
+            <div className="flex items-center gap-2">
+              <select
+                value={tableCategory}
+                onChange={(e) => setTableCategory(e.target.value)}
+                className="flex-1 sm:flex-initial min-h-[44px] py-2 px-3 rounded-xl bg-neutral-100 border border-transparent text-xs text-neutral-700 focus:outline-none capitalize cursor-pointer"
+              >
+                <option value="all">All Styles</option>
+                <option value="abstract">Abstract</option>
+                <option value="modern">Modern</option>
+                <option value="landscape">Landscape</option>
+                <option value="minimalist">Minimalist</option>
+                <option value="portrait">Portrait</option>
+                <option value="classic">Classical</option>
+              </select>
 
-            <button
-              onClick={handleExportCSV}
-              className="py-1.5 px-3 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-              title="Download CSV report"
-            >
-              <Download size={13} />
-              <span>Export CSV</span>
-            </button>
+              <button
+                onClick={() => {
+                  handleExportCSV();
+                  window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
+                }}
+                className="min-h-[44px] py-2 px-4 rounded-xl bg-[#1A1A1A] hover:bg-black text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer active:scale-95 shrink-0"
+                title="Download CSV report"
+              >
+                <Download size={14} />
+                <span>Export CSV</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -401,7 +408,16 @@ export const AdminDashboard: React.FC<Props> = ({
           {users.map((u) => (
             <div
               key={u.id}
-              className="p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 flex items-center justify-between"
+              onClick={() => {
+                if (onViewProfile) {
+                  onViewProfile(u);
+                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                }
+              }}
+              className={`p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 flex items-center justify-between transition-all ${
+                onViewProfile ? "cursor-pointer hover:bg-neutral-100 hover:border-neutral-300 shadow-2xs" : ""
+              }`}
+              title="View User Profile"
             >
               <div className="flex items-center gap-2.5 min-w-0">
                 <img
