@@ -313,7 +313,7 @@ export const Marketplace: React.FC<Props> = ({
                       {t.price}
                     </span>
                     <span className="text-base sm:text-lg font-bold font-mono text-[#1A1A1A]">
-                      ${artwork.price.toLocaleString()}
+                      {artwork.price.toLocaleString()} UZS
                     </span>
                   </div>
 

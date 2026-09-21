@@ -35,7 +35,7 @@ export const ShareModal: React.FC<Props> = ({
   if (!isOpen || !artwork) return null;
 
   const currentUrl = typeof window !== "undefined" ? window.location.href : "https://artwall.app";
-  const shareText = `Check out "${artwork.title}" by ${artwork.artistName} ($${artwork.price}) on Art Wall AR! View it on your room walls in 3D:`;
+  const shareText = `Check out "${artwork.title}" by ${artwork.artistName} (${artwork.price.toLocaleString()} UZS) on Art Wall AR! View it on your room walls in 3D:`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(`${shareText}\n${currentUrl}`);
@@ -108,7 +108,7 @@ export const ShareModal: React.FC<Props> = ({
               by {artwork.artistName}
             </p>
             <span className="font-mono text-xs font-bold text-[#1A1A1A]">
-              ${artwork.price} USD
+              {artwork.price.toLocaleString()} UZS
             </span>
           </div>
         </div>

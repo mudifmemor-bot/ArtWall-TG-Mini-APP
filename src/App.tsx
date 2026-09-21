@@ -22,14 +22,6 @@ import {
 } from "./types";
 import { initialArtworks } from "./data/mockArtworks";
 
-declare global {
-  interface Window {
-    Telegram?: {
-      WebApp?: any;
-    };
-  }
-}
-
 const defaultDirectoryUsers: TelegramUser[] = [
   {
     id: 101,
@@ -122,7 +114,15 @@ export default function App() {
   const [artworks, setArtworks] = useState<Artwork[]>(() => {
     try {
       const saved = localStorage.getItem("artwall_artworks");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: Artwork[] = JSON.parse(saved);
+        return parsed.map((a) => ({
+          ...a,
+          // Migrate legacy USD prices (< 50,000) to authentic UZS amounts
+          price: a.price < 50000 ? Math.round((a.price * 12500) / 100000) * 100000 : a.price,
+          currency: "UZS" as const,
+        }));
+      }
     } catch (e) {
       console.error(e);
     }
@@ -243,7 +243,20 @@ export default function App() {
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
       const saved = localStorage.getItem("artwall_cart");
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed: CartItem[] = JSON.parse(saved);
+        return parsed.map((item) => ({
+          ...item,
+          artwork: {
+            ...item.artwork,
+            price:
+              item.artwork.price < 50000
+                ? Math.round((item.artwork.price * 12500) / 100000) * 100000
+                : item.artwork.price,
+            currency: "UZS" as const,
+          },
+        }));
+      }
     } catch (e) {
       console.error(e);
     }
@@ -554,12 +567,13 @@ export default function App() {
 
   const handleSwitchToPreset = (presetUser: TelegramUser) => {
     let sanitized = { ...presetUser };
+    // STRICT SECURITY: Non-authorized Telegram users can NEVER switch to or activate the admin account
     if (sanitized.role === "admin" && !isAuthorizedAdmin(sanitized)) {
-      sanitized = {
-        ...sanitized,
-        username: ADMIN_TELEGRAM_USERNAME,
-        first_name: "Muxammadsiddiq",
-      };
+      sanitized.role = "buyer";
+    }
+    // Cross-verify with real Telegram environment
+    if (sanitized.role === "admin" && !isAuthorizedAdmin(user)) {
+      sanitized.role = "buyer";
     }
 
     setUser(sanitized);

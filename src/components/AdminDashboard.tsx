@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { Artwork, Language, TelegramUser } from "../types";
 import { translations } from "../translations";
+import { GoogleWorkspacePanel } from "./GoogleWorkspacePanel";
 
 interface Props {
   artworks: Artwork[];
@@ -27,6 +28,7 @@ interface Props {
   lang: Language;
   onViewOnWall: (artwork: Artwork) => void;
   onViewProfile?: (user: TelegramUser) => void;
+  onUpdateUsers?: (users: TelegramUser[]) => void;
 }
 
 export const AdminDashboard: React.FC<Props> = ({
@@ -36,6 +38,7 @@ export const AdminDashboard: React.FC<Props> = ({
   lang,
   onViewOnWall,
   onViewProfile,
+  onUpdateUsers,
 }) => {
   const t = translations[lang];
 
@@ -67,7 +70,7 @@ export const AdminDashboard: React.FC<Props> = ({
   });
 
   const handleExportCSV = () => {
-    const headers = ["Title", "Artist", "Username", "Price_USD", "Views", "Likes", "In_Basket", "AR_Tries", "Category"];
+    const headers = ["Title", "Artist", "Username", "Price_UZS", "Views", "Likes", "In_Basket", "AR_Tries", "Category"];
     const rows = artworks.map((a) => [
       `"${a.title.replace(/"/g, '""')}"`,
       `"${a.artistName.replace(/"/g, '""')}"`,
@@ -317,7 +320,7 @@ export const AdminDashboard: React.FC<Props> = ({
               <tr className="border-b border-neutral-200 text-neutral-400 uppercase tracking-wider text-[10px]">
                 <th className="pb-3 font-bold">Artwork</th>
                 <th className="pb-3 font-bold">Artist</th>
-                <th className="pb-3 font-bold">Price</th>
+                <th className="pb-3 font-bold">Price (UZS)</th>
                 <th className="pb-3 font-bold text-center">Views</th>
                 <th className="pb-3 font-bold text-center">Likes</th>
                 <th className="pb-3 font-bold text-center">In Basket</th>
@@ -359,7 +362,7 @@ export const AdminDashboard: React.FC<Props> = ({
                     </div>
                   </td>
                   <td className="py-3.5 pr-3 font-mono font-bold text-neutral-900">
-                    ${art.price}
+                    {art.price.toLocaleString()} UZS
                   </td>
                   <td className="py-3.5 pr-3 text-center font-mono text-neutral-600">
                     {art.viewsCount || 0}
@@ -387,6 +390,13 @@ export const AdminDashboard: React.FC<Props> = ({
           </table>
         </div>
       </div>
+
+      {/* Google Workspace Integration (Google Sheets & Google Drive) */}
+      <GoogleWorkspacePanel
+        users={users}
+        onUpdateUsers={onUpdateUsers}
+        lang={lang}
+      />
 
       {/* Connected Telegram Users Directory */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E6E1] shadow-xs">

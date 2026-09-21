@@ -13,6 +13,8 @@ import {
   ChevronDown,
   Check,
   Lock,
+  FileSpreadsheet,
+  HardDrive,
 } from "lucide-react";
 import {
   Language,
@@ -33,6 +35,7 @@ interface Props {
   cartCount: number;
   onOpenRoleSwitcher?: () => void;
   onSwitchRole?: (role: UserRole) => void;
+  onOpenGoogleWorkspace?: () => void;
 }
 
 export const Navbar: React.FC<Props> = ({
@@ -45,6 +48,7 @@ export const Navbar: React.FC<Props> = ({
   cartCount,
   onOpenRoleSwitcher,
   onSwitchRole,
+  onOpenGoogleWorkspace,
 }) => {
   const t = translations[lang];
   const canAccessAdmin = isAuthorizedAdmin(user);
@@ -280,6 +284,20 @@ export const Navbar: React.FC<Props> = ({
             ))}
           </div>
 
+          {/* Google Workspace Button (Sheets & Drive) */}
+          {onOpenGoogleWorkspace && (
+            <button
+              onClick={onOpenGoogleWorkspace}
+              className="p-2 rounded-xl bg-white/90 hover:bg-neutral-100 text-neutral-800 border border-neutral-200 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs group"
+              title="Google Workspace (Sheets & Drive Cloud)"
+            >
+              <FileSpreadsheet size={16} className="text-emerald-600" />
+              <span className="text-[11px] font-bold text-neutral-700 hidden lg:inline">
+                Workspace
+              </span>
+            </button>
+          )}
+
           {/* Basket Button (Visible strictly to buyers) */}
           {currentRole === "buyer" && (
             <button
@@ -483,6 +501,23 @@ export const Navbar: React.FC<Props> = ({
                     >
                       <Sliders size={14} />
                       <span>{t.switchRole}</span>
+                    </button>
+                  )}
+
+                  {onOpenGoogleWorkspace && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onOpenGoogleWorkspace();
+                        setIsDropdownOpen(false);
+                      }}
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800 bg-emerald-50/70 hover:bg-emerald-100 transition-colors cursor-pointer border border-emerald-200/60"
+                    >
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet size={14} className="text-emerald-600" />
+                        <span>Google Workspace (Sheets & Drive)</span>
+                      </div>
+                      <HardDrive size={13} className="text-blue-600" />
                     </button>
                   )}
 

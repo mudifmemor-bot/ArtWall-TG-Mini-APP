@@ -19,10 +19,13 @@ import {
   Sliders,
   Layers,
   AlertCircle,
+  HardDrive,
+  ExternalLink,
 } from "lucide-react";
 import * as htmlToImage from "html-to-image";
 import { Artwork, Language, RoomPreset } from "../types";
 import { translations } from "../translations";
+import { uploadFileToDrive, dataUrlToBlob } from "../services/googleWorkspace";
 
 // Reusable Slider Component with Touch Buttons & Mobile Optimization
 const CustomSlider = ({
@@ -307,6 +310,11 @@ export const WallVisualizer: React.FC<Props> = ({
   const [transformMode, setTransformMode] = useState<"move" | "rotate" | "scale">("move");
   const [customScale, setCustomScale] = useState(1);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [isSavingToDrive, setIsSavingToDrive] = useState(false);
+  const [driveNotification, setDriveNotification] = useState<{
+    text: string;
+    url?: string;
+  } | null>(null);
 
   const [viewport, setViewport] = useState({
     width: typeof window !== "undefined" ? window.innerWidth : 1024,
@@ -507,6 +515,50 @@ export const WallVisualizer: React.FC<Props> = ({
     }
   };
 
+  const handleSaveToGoogleDrive = async () => {
+    setIsCapturing(true);
+    setIsSavingToDrive(true);
+    setDriveNotification(null);
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    try {
+      const node = document.getElementById("wall-capture-container");
+      if (!node) return;
+
+      const dataUrl = await htmlToImage.toPng(node, {
+        quality: 0.95,
+        backgroundColor: isARMode ? undefined : "#F9F8F6",
+        skipFonts: true,
+      });
+
+      const blob = dataUrlToBlob(dataUrl);
+      const safeTitle = currentArtwork.title.replace(/[^a-zA-Z0-9_-]/g, "_");
+      const filename = `staging-${safeTitle}-${Date.now()}.png`;
+
+      const driveFile = await uploadFileToDrive(blob, filename, "image/png");
+
+      setDriveNotification({
+        text: `Stored "${filename}" in Google Drive folder "Art Wall AR Storage"!`,
+        url: driveFile.webViewLink,
+      });
+
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+      }
+    } catch (err: any) {
+      console.error("Save to Drive failed:", err);
+      setDriveNotification({
+        text: `Drive upload failed: ${err?.message || "Please connect Google Workspace"}`,
+      });
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+      }
+    } finally {
+      setIsCapturing(false);
+      setIsSavingToDrive(false);
+    }
+  };
+
   const handleResetPose = () => {
     setDragPos({ x: 0, y: 0 });
     setRotation({ rx: 6, ry: -16, rz: -1 });
@@ -554,6 +606,31 @@ export const WallVisualizer: React.FC<Props> = ({
         </div>
       )}
 
+      {/* Google Drive Upload Success Notification */}
+      {driveNotification && !isCapturing && (
+        <div className="absolute top-18 left-1/2 -translate-x-1/2 z-40 bg-[#0F172A]/90 text-white text-xs px-4 py-2.5 rounded-2xl flex items-center gap-2.5 border border-blue-400/40 backdrop-blur-md shadow-xl animate-in fade-in max-w-[90vw]">
+          <HardDrive size={16} className="text-blue-400 shrink-0" />
+          <span className="truncate">{driveNotification.text}</span>
+          {driveNotification.url && (
+            <a
+              href={driveNotification.url}
+              target="_blank"
+              rel="noreferrer"
+              className="px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-bold flex items-center gap-1 shrink-0 ml-1"
+            >
+              <span>Open</span>
+              <ExternalLink size={10} />
+            </a>
+          )}
+          <button
+            onClick={() => setDriveNotification(null)}
+            className="text-white/70 hover:text-white ml-2 font-bold text-xs"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Top Floating Staging Bar */}
       {!isCapturing && (
         <div className="absolute top-2.5 sm:top-4 left-2 sm:left-4 right-2 sm:right-4 z-30 flex items-center justify-between gap-1.5 sm:gap-3 pointer-events-none">
@@ -569,7 +646,7 @@ export const WallVisualizer: React.FC<Props> = ({
                 {currentArtwork.title}
               </span>
               <span className="text-[10px] sm:text-[11px] text-neutral-500 block leading-none font-mono mt-0.5 truncate">
-                {artworkWidth}×{artworkHeight}cm • ${currentArtwork.price}
+                {artworkWidth}×{artworkHeight}cm • {currentArtwork.price.toLocaleString()} UZS
               </span>
             </div>
 
@@ -700,7 +777,23 @@ export const WallVisualizer: React.FC<Props> = ({
             >
               <Camera size={14} className={isCapturing ? "animate-pulse text-amber-500" : "text-[#6B7B62]"} />
               <span className="hidden xl:inline">
-                {isCapturing ? t.saving : "Snapshot"}
+                {isCapturing && !isSavingToDrive ? t.saving : "Snapshot"}
+              </span>
+            </button>
+
+            {/* Save to Google Drive Button */}
+            <button
+              onClick={() => {
+                handleSaveToGoogleDrive();
+                window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("medium");
+              }}
+              disabled={isCapturing}
+              className="h-8 sm:h-9 px-2 sm:px-3 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 transition-all text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer border border-blue-200"
+              title="Save Staging Snapshot to Google Drive"
+            >
+              <HardDrive size={14} className={isSavingToDrive ? "animate-spin text-blue-600" : "text-blue-600"} />
+              <span className="hidden xl:inline">
+                {isSavingToDrive ? "Saving..." : "To Drive"}
               </span>
             </button>
 

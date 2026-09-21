@@ -144,7 +144,7 @@ export const ArtworkDetailModal: React.FC<Props> = ({
             </h2>
 
             <div className="text-xl sm:text-2xl font-bold font-mono text-[#1A1A1A] mb-3">
-              ${artwork.price.toLocaleString()} USD
+              {artwork.price.toLocaleString()} UZS
             </div>
 
             <p className="text-xs sm:text-sm text-neutral-600 leading-relaxed mb-5 font-light">

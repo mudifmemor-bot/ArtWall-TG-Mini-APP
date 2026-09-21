@@ -6,6 +6,7 @@ import {
   Language,
   ADMIN_TELEGRAM_USERNAME,
   isAuthorizedAdmin,
+  getRealTelegramUser,
 } from "../types";
 import { translations } from "../translations";
 
@@ -35,38 +36,45 @@ export const TelegramAuthModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
-  const normalizedUsername = username.replace("@", "").trim().toLowerCase();
-  const isEligibleForAdmin = normalizedUsername === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+  const realTg = getRealTelegramUser();
+  const isRealTgAdmin = Boolean(
+    realTg?.username &&
+    realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase()
+  );
+  // If inside Telegram WebApp, enforce the active real Telegram account
+  const isEligibleForAdmin = realTg ? isRealTgAdmin : isAuthorizedAdmin(currentUser);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
-    const cleanUsername = username.replace("@", "").trim();
+    let cleanUsername = username.replace("@", "").trim();
+    if (realTg?.username) {
+      cleanUsername = realTg.username;
+    }
 
     // STRICT CHECK: Only @muxammadsiddiq_23 is permitted as admin.
     // All other accounts can only be either artist or buyer.
     let finalRole = role;
-    if (role === "admin") {
-      if (cleanUsername.toLowerCase() !== ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
-        if (window.Telegram?.WebApp?.HapticFeedback) {
-          window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-        }
-        alert(
-          lang === "ru"
-            ? `Аккаунт администратора строго закреплен за Telegram-пользователем @${ADMIN_TELEGRAM_USERNAME}. Для логина @${cleanUsername} разрешена только роль Покупателя или Художника.`
-            : `The Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. For @${cleanUsername}, only Buyer or Artist roles are permitted.`
-        );
-        return;
+    if (finalRole === "admin" && !isEligibleForAdmin) {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
       }
+      alert(
+        lang === "ru"
+          ? `Аккаунт администратора строго закреплен за Telegram-пользователем @${ADMIN_TELEGRAM_USERNAME}. Для других аккаунтов разрешена только роль Покупателя или Художника.`
+          : `The Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. For other accounts, only Buyer or Artist roles are permitted.`
+      );
+      finalRole = "buyer";
     }
 
     const updated: TelegramUser = {
-      id: currentUser?.id || Math.floor(Math.random() * 100000000) + 100000,
+      id: currentUser?.id || realTg?.id || Math.floor(Math.random() * 100000000) + 100000,
       first_name: firstName.trim() || (finalRole === "artist" ? "Artist" : finalRole === "admin" ? "Muxammadsiddiq" : "Art Buyer"),
       last_name: lastName.trim() || undefined,
       username: cleanUsername || (finalRole === "artist" ? "telegram_artist" : finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : "art_collector"),
       photo_url:
         currentUser?.photo_url ||
+        realTg?.photo_url ||
         (finalRole === "artist"
           ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
           : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"),
@@ -83,6 +91,14 @@ export const TelegramAuthModal: React.FC<Props> = ({
   };
 
   const loadPreset = (presetRole: UserRole) => {
+    if (presetRole === "admin" && !isEligibleForAdmin) {
+      alert(
+        lang === "ru"
+          ? `Роль администратора закреплена только за @${ADMIN_TELEGRAM_USERNAME}.`
+          : `Admin role is restricted strictly to @${ADMIN_TELEGRAM_USERNAME}.`
+      );
+      return;
+    }
     setRole(presetRole);
     if (presetRole === "artist") {
       setFirstName("Elena");
@@ -201,17 +217,27 @@ export const TelegramAuthModal: React.FC<Props> = ({
             <button
               type="button"
               onClick={() => {
+                if (!isEligibleForAdmin) {
+                  if (window.Telegram?.WebApp?.HapticFeedback) {
+                    window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+                  }
+                  alert(
+                    lang === "ru"
+                      ? `Аккаунт администратора доступен исключительно для Telegram-пользователя @${ADMIN_TELEGRAM_USERNAME}. Все остальные аккаунты могут быть только покупателями или художниками.`
+                      : `Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be buyers or artists.`
+                  );
+                  return;
+                }
                 setRole("admin");
-                // Admin role requires @muxammadsiddiq_23 username
                 const targetUsername = ADMIN_TELEGRAM_USERNAME;
-                const targetFirstName = isEligibleForAdmin && firstName ? firstName : "Muxammadsiddiq";
+                const targetFirstName = firstName || "Muxammadsiddiq";
                 setUsername(targetUsername);
                 setFirstName(targetFirstName);
 
                 const updated: TelegramUser = {
                   id: currentUser?.id || 999,
                   first_name: targetFirstName,
-                  last_name: lastName.trim() || (isEligibleForAdmin && currentUser?.last_name ? currentUser.last_name : "Admin"),
+                  last_name: lastName.trim() || "Admin",
                   username: targetUsername,
                   photo_url: currentUser?.photo_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
                   role: "admin",
@@ -226,7 +252,9 @@ export const TelegramAuthModal: React.FC<Props> = ({
               className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer relative ${
                 role === "admin"
                   ? "bg-[#2D3748] text-white shadow-sm"
-                  : "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
+                  : isEligibleForAdmin
+                  ? "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
+                  : "text-neutral-400 bg-neutral-100/70 border border-neutral-200 cursor-not-allowed opacity-80"
               }`}
             >
               <div className="flex items-center gap-1">
@@ -295,31 +323,35 @@ export const TelegramAuthModal: React.FC<Props> = ({
             >
               Artist
             </button>
-            <span className="text-neutral-300">|</span>
-            <button
-              type="button"
-              onClick={() => {
-                const user: TelegramUser = {
-                  id: 999,
-                  first_name: "Muxammadsiddiq",
-                  last_name: "Admin",
-                  username: ADMIN_TELEGRAM_USERNAME,
-                  photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                  role: "admin",
-                  bio: "Art Wall platform operations, curation & founder analytics.",
-                  location: "HQ Tashkent",
-                };
-                onSaveUser(user);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                }
-                onClose();
-              }}
-              className="text-[11px] font-bold text-[#2D3748] underline hover:text-black cursor-pointer flex items-center gap-1"
-            >
-              <ShieldCheck size={12} />
-              Admin (@{ADMIN_TELEGRAM_USERNAME})
-            </button>
+            {isEligibleForAdmin && (
+              <>
+                <span className="text-neutral-300">|</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const user: TelegramUser = {
+                      id: 999,
+                      first_name: "Muxammadsiddiq",
+                      last_name: "Admin",
+                      username: ADMIN_TELEGRAM_USERNAME,
+                      photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+                      role: "admin",
+                      bio: "Art Wall platform operations, curation & founder analytics.",
+                      location: "HQ Tashkent",
+                    };
+                    onSaveUser(user);
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                      window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+                    }
+                    onClose();
+                  }}
+                  className="text-[11px] font-bold text-[#2D3748] underline hover:text-black cursor-pointer flex items-center gap-1"
+                >
+                  <ShieldCheck size={12} />
+                  Admin (@{ADMIN_TELEGRAM_USERNAME})
+                </button>
+              </>
+            )}
           </div>
         </div>
 

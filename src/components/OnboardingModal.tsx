@@ -66,7 +66,21 @@ export const OnboardingModal: React.FC<Props> = ({
 
   if (!isOpen) return null;
 
+  const isAllowedAdmin = isAuthorizedAdmin(currentUser || tgWebAppUser);
+
   const handleSelectRole = (role: UserRole) => {
+    if (role === "admin" && !isAllowedAdmin) {
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+      }
+      alert(
+        lang === "ru"
+          ? `Роль администратора доступна исключительно подтвержденному Telegram-пользователю @${ADMIN_TELEGRAM_USERNAME}. Все остальные аккаунты могут быть только Покупателями или Художниками.`
+          : `Admin role is strictly restricted to verified Telegram user @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be Buyer or Artist.`
+      );
+      return;
+    }
+
     setSelectedRole(role);
     if (!currentUser) {
       if (role === "artist") {
@@ -95,10 +109,14 @@ export const OnboardingModal: React.FC<Props> = ({
 
   const handleFinish = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUsername = username.replace("@", "").trim();
+    let cleanUsername = username.replace("@", "").trim();
+    if (tgWebAppUser?.username) {
+      cleanUsername = tgWebAppUser.username;
+    }
+
     let finalRole = selectedRole;
 
-    if (finalRole === "admin" && cleanUsername.toLowerCase() !== ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+    if (finalRole === "admin" && !isAllowedAdmin) {
       alert(
         lang === "ru"
           ? `Роль администратора доступна только для Telegram-пользователя @${ADMIN_TELEGRAM_USERNAME}. Для других аккаунтов установлена роль Покупателя.`
@@ -226,32 +244,71 @@ export const OnboardingModal: React.FC<Props> = ({
               </button>
 
               {/* Admin Option */}
-              <button
-                type="button"
-                onClick={() => handleSelectRole("admin")}
-                className="w-full text-left p-3.5 px-4 rounded-xl bg-white/70 hover:bg-white border border-neutral-200 hover:border-neutral-400 transition-all flex items-center justify-between group cursor-pointer"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-neutral-100 text-neutral-700 flex items-center justify-center">
-                    <BarChart3 size={16} />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-neutral-800 block">
-                        {t.adminRole} / Platform Analytics
-                      </span>
-                      <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
-                        <Lock size={9} />
-                        @{ADMIN_TELEGRAM_USERNAME}
+              {isAllowedAdmin ? (
+                <button
+                  type="button"
+                  onClick={() => handleSelectRole("admin")}
+                  className="w-full text-left p-3.5 px-4 rounded-xl bg-white/70 hover:bg-white border border-neutral-200 hover:border-neutral-400 transition-all flex items-center justify-between group cursor-pointer"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-neutral-100 text-neutral-700 flex items-center justify-center">
+                      <BarChart3 size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-neutral-800 block">
+                          {t.adminRole} / Platform Analytics
+                        </span>
+                        <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
+                          <Lock size={9} />
+                          @{ADMIN_TELEGRAM_USERNAME}
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-neutral-500 font-light">
+                        {t.adminDesc}
                       </span>
                     </div>
-                    <span className="text-[11px] text-neutral-500 font-light">
-                      {t.adminDesc}
-                    </span>
                   </div>
+                  <ArrowRight size={14} className="text-neutral-400 group-hover:text-black" />
+                </button>
+              ) : (
+                <div
+                  onClick={() => {
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                      window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+                    }
+                    alert(
+                      lang === "ru"
+                        ? `Панель администратора доступна исключительно аккаунту @${ADMIN_TELEGRAM_USERNAME}. Все остальные пользователи могут зарегистрироваться как Покупатель или Художник.`
+                        : `Admin panel is strictly restricted to @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be Buyer or Artist.`
+                    );
+                  }}
+                  className="w-full text-left p-3.5 px-4 rounded-xl bg-neutral-100/70 border border-neutral-200/80 transition-all flex items-center justify-between cursor-not-allowed opacity-80"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-neutral-200/60 text-neutral-400 flex items-center justify-center">
+                      <Lock size={16} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-neutral-400 block line-through">
+                          {t.adminRole}
+                        </span>
+                        <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
+                          <Lock size={8} />
+                          @{ADMIN_TELEGRAM_USERNAME} only
+                        </span>
+                      </div>
+                      <span className="text-[11px] text-neutral-400 font-light">
+                        {lang === "ru"
+                          ? "Заблокировано: доступно только @muxammadsiddiq_23"
+                          : "Locked: restricted to @muxammadsiddiq_23"}
+                      </span>
+                    </div>
+                  </div>
+                  <Lock size={14} className="text-neutral-400" />
                 </div>
-                <ArrowRight size={14} className="text-neutral-400 group-hover:text-black" />
-              </button>
+              )}
             </div>
 
             <div className="text-center pt-2">

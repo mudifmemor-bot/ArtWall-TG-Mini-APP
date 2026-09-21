@@ -264,31 +264,9 @@ export const RoleSwitcherModal: React.FC<Props> = ({
                   <div className="mb-3 px-3 py-2 rounded-xl bg-amber-50/70 border border-amber-200/70 text-xs text-amber-900 flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-light">
                       {lang === "ru"
-                        ? `Административный доступ заблокирован для текущего профиля (${currentUser?.username ? `@${currentUser.username}` : "пользователь"}). Разрешен только для @${ADMIN_TELEGRAM_USERNAME}.`
-                        : `Admin access is restricted for current profile (${currentUser?.username ? `@${currentUser.username}` : "user"}). Accessible solely by @${ADMIN_TELEGRAM_USERNAME}.`}
+                        ? `Административный доступ заблокирован для текущего профиля (${currentUser?.username ? `@${currentUser.username}` : "пользователь"}). Доступ открыт исключительно для подтвержденного аккаунта @${ADMIN_TELEGRAM_USERNAME}.`
+                        : `Admin access is restricted for current profile (${currentUser?.username ? `@${currentUser.username}` : "user"}). Accessible solely by verified Telegram account @${ADMIN_TELEGRAM_USERNAME}.`}
                     </span>
-                    {onSwitchToPreset && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onSwitchToPreset({
-                            id: 999,
-                            first_name: "Muxammadsiddiq",
-                            last_name: "Admin",
-                            username: ADMIN_TELEGRAM_USERNAME,
-                            photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                            role: "admin",
-                            bio: "Founder, curation & platform analytics operations.",
-                            location: "HQ Tashkent",
-                          });
-                          onClose();
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-amber-900 text-white font-medium text-[11px] hover:bg-black transition-colors"
-                      >
-                        {lang === "ru" ? `Войти как @${ADMIN_TELEGRAM_USERNAME}` : `Switch to @${ADMIN_TELEGRAM_USERNAME}`}
-                      </button>
-                    )}
                   </div>
                 )}
 
@@ -350,7 +328,7 @@ export const RoleSwitcherModal: React.FC<Props> = ({
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className={`grid grid-cols-1 ${canAccessAdmin ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-2`}>
             <button
               type="button"
               onClick={() => {
@@ -409,34 +387,36 @@ export const RoleSwitcherModal: React.FC<Props> = ({
               </span>
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                if (onSwitchToPreset) {
-                  onSwitchToPreset({
-                    id: 999,
-                    first_name: "Muxammadsiddiq",
-                    last_name: "Admin",
-                    username: ADMIN_TELEGRAM_USERNAME,
-                    photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                    role: "admin",
-                    bio: "Founder, curation & platform analytics operations.",
-                    location: "HQ Tashkent",
-                  });
-                  onClose();
-                } else {
-                  handleSelectRole("admin", true);
-                }
-              }}
-              className="px-3 py-2 rounded-xl bg-white border border-[#2D3748]/40 text-left hover:border-[#2D3748] transition-all group ring-1 ring-[#2D3748]/10"
-            >
-              <span className="text-xs font-bold text-neutral-800 block group-hover:text-[#2D3748]">
-                Muxammadsiddiq
-              </span>
-              <span className="text-[10px] text-[#2D3748] block font-semibold">
-                🛡️ @{ADMIN_TELEGRAM_USERNAME} (Admin)
-              </span>
-            </button>
+            {canAccessAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (onSwitchToPreset) {
+                    onSwitchToPreset({
+                      id: 999,
+                      first_name: "Muxammadsiddiq",
+                      last_name: "Admin",
+                      username: ADMIN_TELEGRAM_USERNAME,
+                      photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+                      role: "admin",
+                      bio: "Founder, curation & platform analytics operations.",
+                      location: "HQ Tashkent",
+                    });
+                    onClose();
+                  } else {
+                    handleSelectRole("admin", true);
+                  }
+                }}
+                className="px-3 py-2 rounded-xl bg-white border border-[#2D3748]/40 text-left hover:border-[#2D3748] transition-all group ring-1 ring-[#2D3748]/10"
+              >
+                <span className="text-xs font-bold text-neutral-800 block group-hover:text-[#2D3748]">
+                  Muxammadsiddiq
+                </span>
+                <span className="text-[10px] text-[#2D3748] block font-semibold">
+                  🛡️ @{ADMIN_TELEGRAM_USERNAME} (Admin)
+                </span>
+              </button>
+            )}
           </div>
         </div>
       </div>

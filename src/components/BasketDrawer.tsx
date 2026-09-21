@@ -47,7 +47,7 @@ export const BasketDrawer: React.FC<Props> = ({
     // Create itemized order summary for Telegram
     const orderLines = items.map(
       (item, idx) =>
-        `${idx + 1}. "${item.artwork.title}" by ${item.artwork.artistName} - $${item.artwork.price} (${item.selectedWidth}x${item.selectedHeight}cm, ${item.frameMaterial} frame)`
+        `${idx + 1}. "${item.artwork.title}" by ${item.artwork.artistName} - ${item.artwork.price.toLocaleString()} UZS (${item.selectedWidth}x${item.selectedHeight}cm, ${item.frameMaterial} frame)`
     );
 
     const buyerName = user ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""} (@${user.username || "collector"})` : "Telegram Collector";
@@ -56,7 +56,7 @@ export const BasketDrawer: React.FC<Props> = ({
       `🎨 *Art Wall AR - New Artwork Order Inquiry*\n\n` +
       `👤 Buyer: ${buyerName}\n` +
       `📦 Items:\n${orderLines.join("\n")}\n\n` +
-      `💰 Total: $${subtotal.toLocaleString()} USD\n` +
+      `💰 Total: ${subtotal.toLocaleString()} UZS\n` +
       `✨ Delivery & Framing Included\n\nPlease confirm availability and payment details.`
     );
 
@@ -168,7 +168,7 @@ export const BasketDrawer: React.FC<Props> = ({
                       {item.selectedWidth}×{item.selectedHeight} cm • {item.frameMaterial} frame
                     </p>
                     <span className="font-mono text-xs font-bold text-[#1A1A1A] block mt-1">
-                      ${item.artwork.price.toLocaleString()}
+                      {item.artwork.price.toLocaleString()} UZS
                     </span>
                   </div>
 
@@ -211,7 +211,7 @@ export const BasketDrawer: React.FC<Props> = ({
               <div className="flex justify-between text-neutral-600">
                 <span>{t.subtotal}</span>
                 <span className="font-mono font-bold text-neutral-900 text-sm sm:text-base">
-                  ${subtotal.toLocaleString()} USD
+                  {subtotal.toLocaleString()} UZS
                 </span>
               </div>
               <div className="flex justify-between text-neutral-400 text-[11px]">
@@ -233,10 +233,10 @@ export const BasketDrawer: React.FC<Props> = ({
               onClick={() => {
                 const orderLines = items.map(
                   (item, idx) =>
-                    `${idx + 1}. "${item.artwork.title}" by ${item.artwork.artistName} - $${item.artwork.price} (${item.selectedWidth}x${item.selectedHeight}cm, ${item.frameMaterial} frame)`
+                    `${idx + 1}. "${item.artwork.title}" by ${item.artwork.artistName} - ${item.artwork.price.toLocaleString()} UZS (${item.selectedWidth}x${item.selectedHeight}cm, ${item.frameMaterial} frame)`
                 );
                 const buyerName = user ? `${user.first_name}${user.last_name ? ` ${user.last_name}` : ""} (@${user.username || "collector"})` : "Telegram Collector";
-                const rawText = `Art Wall AR - New Artwork Order Inquiry\nBuyer: ${buyerName}\nItems:\n${orderLines.join("\n")}\nTotal: $${subtotal.toLocaleString()} USD\nDelivery & Framing Included`;
+                const rawText = `Art Wall AR - New Artwork Order Inquiry\nBuyer: ${buyerName}\nItems:\n${orderLines.join("\n")}\nTotal: ${subtotal.toLocaleString()} UZS\nDelivery & Framing Included`;
                 navigator.clipboard.writeText(rawText);
                 if (window.Telegram?.WebApp?.HapticFeedback) {
                   window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");

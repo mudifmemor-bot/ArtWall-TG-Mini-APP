@@ -20,9 +20,11 @@ import {
   ShoppingBag,
   TrendingUp,
   BarChart2,
+  HardDrive,
 } from "lucide-react";
 import { Artwork, TelegramUser, Language, MAX_ARTIST_UPLOADS } from "../types";
 import { translations } from "../translations";
+import { uploadFileToDrive, getStoredWorkspaceState } from "../services/googleWorkspace";
 
 interface Props {
   user: TelegramUser | null;
@@ -49,7 +51,7 @@ export const ArtistStudio: React.FC<Props> = ({
 
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [title, setTitle] = useState("");
-  const [price, setPrice] = useState<number>(550);
+  const [price, setPrice] = useState<number>(6500000);
   const [width, setWidth] = useState<number>(60);
   const [height, setHeight] = useState<number>(80);
   const [medium, setMedium] = useState("Oil & mixed media on Belgian linen");
@@ -87,6 +89,8 @@ export const ArtistStudio: React.FC<Props> = ({
   const totalMyPortfolioValue = artistWorks.reduce((acc, a) => acc + (a.price || 0), 0);
 
   const isUploadLimitReached = artistWorks.length >= MAX_ARTIST_UPLOADS;
+  const [isUploadingToDrive, setIsUploadingToDrive] = useState(false);
+  const [driveAssetLink, setDriveAssetLink] = useState<string | null>(null);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -98,6 +102,34 @@ export const ArtistStudio: React.FC<Props> = ({
         setImageUrl(result);
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUploadDirectToDrive = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // First show local preview immediately
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const result = event.target?.result as string;
+      setImagePreview(result);
+      setImageUrl(result);
+    };
+    reader.readAsDataURL(file);
+
+    // Now upload to Google Drive
+    setIsUploadingToDrive(true);
+    try {
+      const uploaded = await uploadFileToDrive(file, `artwork-${file.name}`, file.type || "image/png");
+      if (uploaded.webViewLink) {
+        setDriveAssetLink(uploaded.webViewLink);
+      }
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
+    } catch (err: any) {
+      console.warn("Drive upload failed, using local artwork image:", err);
+    } finally {
+      setIsUploadingToDrive(false);
     }
   };
 
@@ -121,7 +153,7 @@ export const ArtistStudio: React.FC<Props> = ({
       artistUsername: user?.username || "elena_art_studio",
       artistAvatar: user?.photo_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
       imageUrl: imagePreview || imageUrl,
-      price: Number(price) || 450,
+      price: Number(price) || 5000000,
       width: Number(width) || 60,
       height: Number(height) || 80,
       medium: medium.trim() || "Oil on canvas",
@@ -312,7 +344,7 @@ export const ArtistStudio: React.FC<Props> = ({
               <TrendingUp size={15} className="text-amber-600" />
             </div>
             <div className="font-mono text-xl sm:text-2xl font-bold text-[#1A1A1A]">
-              ${totalMyPortfolioValue.toLocaleString()}
+              {totalMyPortfolioValue.toLocaleString()} UZS
             </div>
             <span className="text-[10px] text-neutral-400">Listed artwork total</span>
           </div>
@@ -387,6 +419,33 @@ export const ArtistStudio: React.FC<Props> = ({
                   />
                 </div>
 
+                {/* Direct Google Drive Upload Option */}
+                <div className="mt-2.5 flex items-center justify-between gap-2 p-2.5 rounded-xl bg-blue-50/70 border border-blue-200/80">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <HardDrive size={15} className="text-blue-600 shrink-0" />
+                    <div className="min-w-0">
+                      <span className="text-xs font-bold text-blue-900 block truncate">
+                        Google Drive Cloud Storage
+                      </span>
+                      <span className="text-[10px] text-blue-700/80 block truncate">
+                        {driveAssetLink ? "Stored in Art Wall AR Storage" : "Store master artwork in Google Drive"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <label className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold flex items-center gap-1.5 shrink-0 transition-all cursor-pointer shadow-2xs">
+                    <Upload size={12} />
+                    <span>{isUploadingToDrive ? "Uploading..." : "Upload to Drive"}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleUploadDirectToDrive}
+                      disabled={isUploadingToDrive}
+                      className="hidden"
+                    />
+                  </label>
+                </div>
+
                 {/* Or choose demo stock artwork */}
                 <div className="mt-2 flex items-center gap-2">
                   <span className="text-[11px] text-neutral-500 font-medium">
@@ -433,10 +492,10 @@ export const ArtistStudio: React.FC<Props> = ({
                   <input
                     type="number"
                     required
-                    min={10}
+                    min={1000}
                     value={price}
                     onChange={(e) => setPrice(Number(e.target.value))}
-                    placeholder="650"
+                    placeholder="6500000"
                     className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs sm:text-sm focus:ring-2 focus:ring-[#6B7B62] focus:outline-none font-mono"
                   />
                 </div>
@@ -688,7 +747,7 @@ export const ArtistStudio: React.FC<Props> = ({
                       {art.title}
                     </h3>
                     <span className="font-mono text-xs font-bold text-[#1A1A1A]">
-                      ${art.price}
+                      {art.price.toLocaleString()} UZS
                     </span>
                   </div>
 

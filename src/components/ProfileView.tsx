@@ -32,6 +32,7 @@ import {
   UserRole,
   ADMIN_TELEGRAM_USERNAME,
   isAuthorizedAdmin,
+  getRealTelegramUser,
 } from "../types";
 import { translations } from "../translations";
 import { RoleSwitcherModal } from "./RoleSwitcherModal";
@@ -121,10 +122,23 @@ export const ProfileView: React.FC<Props> = ({
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanUsername = editUsername.replace("@", "").trim();
+    const realTg = getRealTelegramUser();
+    let cleanUsername = editUsername.replace("@", "").trim();
+
+    if (realTg?.username) {
+      cleanUsername = realTg.username;
+    } else if (!canAccessAdmin && cleanUsername.toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+      alert(
+        lang === "ru"
+          ? `Имя пользователя @${ADMIN_TELEGRAM_USERNAME} зарезервировано исключительно для аккаунта администратора.`
+          : `Username @${ADMIN_TELEGRAM_USERNAME} is reserved exclusively for the administrator account.`
+      );
+      cleanUsername = displayUser.username || "collector";
+    }
+
     let finalRole = displayUser.role;
 
-    if (finalRole === "admin" && cleanUsername.toLowerCase() !== ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+    if (finalRole === "admin" && (!canAccessAdmin || cleanUsername.toLowerCase() !== ADMIN_TELEGRAM_USERNAME.toLowerCase())) {
       alert(
         lang === "ru"
           ? `Аккаунт администратора доступен исключительно для @${ADMIN_TELEGRAM_USERNAME}. Роль переключена на покупателя.`
@@ -707,7 +721,7 @@ export const ProfileView: React.FC<Props> = ({
                         </h4>
                         <div className="flex items-center justify-between text-xs text-neutral-500 mt-1 mb-3">
                           <span className="font-mono">{art.width}×{art.height} cm</span>
-                          <span className="font-mono font-bold text-neutral-900">${art.price}</span>
+                          <span className="font-mono font-bold text-neutral-900">{art.price.toLocaleString()} UZS</span>
                         </div>
 
                         {/* Staging stats badge */}
@@ -841,7 +855,7 @@ export const ProfileView: React.FC<Props> = ({
                         </h4>
                         <div className="flex items-center justify-between text-xs text-neutral-500 mt-1 mb-2">
                           <span className="font-mono">{art.width}×{art.height} cm</span>
-                          <span className="font-mono font-bold text-neutral-900">${art.price}</span>
+                          <span className="font-mono font-bold text-neutral-900">{art.price.toLocaleString()} UZS</span>
                         </div>
                       </div>
                     </div>
@@ -948,7 +962,7 @@ export const ProfileView: React.FC<Props> = ({
 
                   <div className="flex items-center gap-3 shrink-0">
                     <span className="font-mono font-bold text-sm text-neutral-900">
-                      ${item.artwork.price}
+                      {item.artwork.price.toLocaleString()} UZS
                     </span>
                     <button
                       onClick={() => onViewOnWall(item.artwork)}
@@ -966,7 +980,7 @@ export const ProfileView: React.FC<Props> = ({
                   {lang === "ru" ? "Итого:" : "Subtotal:"}
                 </span>
                 <span className="font-mono font-bold text-xl text-neutral-900">
-                  ${cartItems.reduce((sum, i) => sum + i.artwork.price, 0).toLocaleString()} USD
+                  {cartItems.reduce((sum, i) => sum + i.artwork.price, 0).toLocaleString()} UZS
                 </span>
               </div>
             </div>
