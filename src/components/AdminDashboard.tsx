@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Copy,
   Check,
+  Trash2,
 } from "lucide-react";
 import { Artwork, Language, TelegramUser } from "../types";
 import { translations } from "../translations";
@@ -74,6 +75,22 @@ export const AdminDashboard: React.FC<Props> = ({
       window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("error");
     } finally {
       setTimeout(() => setIsRefreshingUsers(false), 500);
+    }
+  };
+
+  const handleClearAllUsers = async () => {
+    if (!window.confirm("Are you sure you want to delete all users from the database? Everyone will have to sign up again through Telegram.")) {
+      return;
+    }
+    try {
+      await fetch("/api/users", { method: "DELETE" });
+      if (onUpdateUsers) {
+        onUpdateUsers([]);
+      }
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
+    } catch (err) {
+      console.warn("Could not clear users:", err);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("error");
     }
   };
 
@@ -467,7 +484,7 @@ export const AdminDashboard: React.FC<Props> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={handleManualRefreshUsers}
               disabled={isRefreshingUsers}
@@ -476,6 +493,14 @@ export const AdminDashboard: React.FC<Props> = ({
             >
               <RefreshCw size={14} className={isRefreshingUsers ? "animate-spin text-[#6B7B62]" : ""} />
               <span>{isRefreshingUsers ? "Syncing..." : "Refresh Live Users"}</span>
+            </button>
+            <button
+              onClick={handleClearAllUsers}
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95"
+              title="Delete all users from database and make them sign up again"
+            >
+              <Trash2 size={14} />
+              <span>Clear / Reset Users</span>
             </button>
             <span className="text-xs text-neutral-500 font-mono bg-neutral-100 px-3 py-2 rounded-xl">
               {filteredUsers.length} / {users.length}
@@ -523,7 +548,7 @@ export const AdminDashboard: React.FC<Props> = ({
         {/* User Cards Grid */}
         {filteredUsers.length === 0 ? (
           <div className="py-12 text-center text-neutral-400 text-xs bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
-            No users found matching your search.
+            No real registered users yet. All visitors will sign up through Telegram to appear here.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
@@ -546,7 +571,7 @@ export const AdminDashboard: React.FC<Props> = ({
                     <img
                       src={
                         u.photo_url ||
-                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(u.first_name || "User")}&background=2AABEE&color=ffffff&size=200&bold=true`
                       }
                       alt={u.first_name}
                       className="w-12 h-12 rounded-xl object-cover ring-1 ring-black/10 shrink-0"

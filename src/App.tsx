@@ -31,82 +31,23 @@ import {
 } from "./services/api";
 import { autoSyncUsersToGoogleSheetIfConnected } from "./services/googleWorkspace";
 
-const defaultDirectoryUsers: TelegramUser[] = [
-  {
-    id: 101,
-    first_name: "Elena",
-    last_name: "Rostova",
-    username: "elena_art_studio",
-    phone_number: "+998 90 987 65 43",
-    photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Contemporary mixed media artist creating spatial dialogue through texture and light.",
-    location: "Tashkent Studio",
-  },
-  {
-    id: 102,
-    first_name: "Azizbek",
-    last_name: "Karimov",
-    username: "aziz_samarkand_art",
-    phone_number: "+998 93 456 78 90",
-    photo_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Ceramic textured acrylics and architectural heritage.",
-    location: "Samarkand",
-  },
-  {
-    id: 103,
-    first_name: "Mikhail",
-    last_name: "Voronin",
-    username: "voronin_m_art",
-    phone_number: "+998 97 123 99 88",
-    photo_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Minimalist geometry and atmospheric tones.",
-    location: "Tashkent",
-  },
-  {
-    id: 201,
-    first_name: "Rustam",
-    last_name: "Aliev",
-    username: "rustam_collector",
-    phone_number: "+998 91 234 56 78",
-    photo_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Tashkent",
-  },
-  {
-    id: 202,
-    first_name: "Daria",
-    last_name: "Sokolova",
-    username: "daria_artlover",
-    phone_number: "+7 701 555 43 21",
-    photo_url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Almaty",
-  },
-  {
-    id: 203,
-    first_name: "Farrukh",
-    last_name: "Khamidov",
-    username: "farrukh_interior",
-    phone_number: "+998 99 888 77 66",
-    photo_url: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Tashkent",
-  },
-  {
-    id: 999,
-    first_name: "Muxammadsiddiq",
-    last_name: "Admin",
-    username: ADMIN_TELEGRAM_USERNAME,
-    phone_number: "+998 90 123 45 67",
-    photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-    role: "admin",
-    bio: "Chief curator & Art Wall platform operations administrator.",
-    location: "HQ Tashkent",
-  },
-];
+const isMockUser = (u: any): boolean => {
+  if (!u) return false;
+  return (
+    u.id === 101 ||
+    u.id === 102 ||
+    u.id === 103 ||
+    u.id === 201 ||
+    u.id === 202 ||
+    u.id === 203 ||
+    u.username === "elena_art_studio" ||
+    u.username === "aziz_samarkand_art" ||
+    u.username === "voronin_m_art" ||
+    u.username === "rustam_collector" ||
+    u.username === "daria_artlover" ||
+    u.username === "farrukh_interior"
+  );
+};
 
 export default function App() {
   const [lang, setLang] = useState<Language>(() => {
@@ -118,12 +59,35 @@ export default function App() {
   const [targetProfileUser, setTargetProfileUser] = useState<TelegramUser | null>(null);
   const [previousTabBeforeProfile, setPreviousTabBeforeProfile] = useState<"gallery" | "visualizer" | "studio" | "admin">("gallery");
 
-  // Onboarding startup state
+  // Onboarding startup state: strictly force sign up for everyone unless they have a verified real Telegram account with phone number
   const [hasOnboarded, setHasOnboarded] = useState<boolean>(() => {
-    return localStorage.getItem("artwall_onboarded") === "true";
+    try {
+      const savedUser = localStorage.getItem("artwall_user");
+      if (!savedUser) return false;
+      const parsed = JSON.parse(savedUser);
+      if (isMockUser(parsed) || !parsed.phone_number) {
+        localStorage.removeItem("artwall_user");
+        localStorage.removeItem("artwall_onboarded");
+        return false;
+      }
+      return localStorage.getItem("artwall_onboarded") === "true";
+    } catch {
+      return false;
+    }
   });
+
   const [isOnboardingOpen, setIsOnboardingOpen] = useState<boolean>(() => {
-    return localStorage.getItem("artwall_onboarded") !== "true";
+    try {
+      const savedUser = localStorage.getItem("artwall_user");
+      if (!savedUser) return true;
+      const parsed = JSON.parse(savedUser);
+      if (isMockUser(parsed) || !parsed.phone_number) {
+        return true;
+      }
+      return localStorage.getItem("artwall_onboarded") !== "true";
+    } catch {
+      return true;
+    }
   });
 
   // Artworks state (with localStorage persistence)
@@ -145,28 +109,18 @@ export default function App() {
     return initialArtworks;
   });
 
-  // Users Directory state for Admin
+  // Users Directory state for Admin - strictly real Telegram users only
   const [usersDirectory, setUsersDirectory] = useState<TelegramUser[]>(() => {
     try {
       const saved = localStorage.getItem("artwall_users_directory");
       if (saved) {
         const parsed: TelegramUser[] = JSON.parse(saved);
-        return parsed.map((u) => {
-          if (u.role === "admin" && !isAuthorizedAdmin(u)) {
-            // If it was the legacy admin, update to @muxammadsiddiq_23
-            if (u.username === "artwall_admin") {
-              return { ...u, username: ADMIN_TELEGRAM_USERNAME, first_name: "Muxammadsiddiq" };
-            }
-            // Otherwise, downgrade non-authorized admin to buyer
-            return { ...u, role: "buyer" as const };
-          }
-          return u;
-        });
+        return parsed.filter((u) => !isMockUser(u));
       }
     } catch (e) {
       console.error(e);
     }
-    return defaultDirectoryUsers;
+    return [];
   });
 
   useEffect(() => {
@@ -194,16 +148,11 @@ export default function App() {
 
         if (!isMounted) return;
 
-        if (serverUsers && serverUsers.length > 0) {
-          setUsersDirectory((prev) => {
-            // Merge server users with local users, preferring newer server updates
-            const map = new Map<number, TelegramUser>();
-            prev.forEach((u) => map.set(u.id, u));
-            serverUsers.forEach((u) => map.set(u.id, { ...map.get(u.id), ...u }));
-            const merged = Array.from(map.values());
-            localStorage.setItem("artwall_users_directory", JSON.stringify(merged));
-            return merged;
-          });
+        if (Array.isArray(serverUsers)) {
+          // Strictly take the real registered users from the server (filter any mock users)
+          const realUsers = serverUsers.filter((u) => !isMockUser(u));
+          setUsersDirectory(realUsers);
+          localStorage.setItem("artwall_users_directory", JSON.stringify(realUsers));
         }
 
         if (serverArtworks && serverArtworks.length > 0) {
@@ -238,13 +187,13 @@ export default function App() {
       const saved = localStorage.getItem("artwall_user");
       if (saved) {
         const parsed: TelegramUser = JSON.parse(saved);
+        if (isMockUser(parsed)) {
+          localStorage.removeItem("artwall_user");
+          localStorage.removeItem("artwall_onboarded");
+          return null;
+        }
         if (parsed.role === "admin" && !isAuthorizedAdmin(parsed)) {
-          if (parsed.username === "artwall_admin") {
-            parsed.username = ADMIN_TELEGRAM_USERNAME;
-            parsed.first_name = "Muxammadsiddiq";
-          } else {
-            parsed.role = "buyer";
-          }
+          parsed.role = "buyer";
         }
         return parsed;
       }
@@ -629,22 +578,22 @@ export default function App() {
       return;
     }
 
-    let updatedUser: TelegramUser;
-    if (user) {
-      updatedUser = {
-        ...user,
-        role: newRole,
-      };
-      if (newRole === "artist" && (!updatedUser.bio || updatedUser.bio.includes("collect"))) {
-        updatedUser.bio = "Contemporary mixed media artist creating spatial dialogue through texture and light.";
-      }
-    } else {
-      updatedUser =
-        defaultDirectoryUsers.find((u) => u.role === newRole) || defaultDirectoryUsers[0];
+    if (!user) {
+      setIsOnboardingOpen(true);
+      return;
+    }
+
+    const updatedUser: TelegramUser = {
+      ...user,
+      role: newRole,
+    };
+    if (newRole === "artist" && (!updatedUser.bio || updatedUser.bio.includes("collect"))) {
+      updatedUser.bio = "Contemporary mixed media artist creating spatial dialogue through texture and light.";
     }
 
     setUser(updatedUser);
     localStorage.setItem("artwall_user", JSON.stringify(updatedUser));
+    registerOrUpdateUser(updatedUser).catch(console.warn);
 
     // Keep user directory synced
     setUsersDirectory((prev) => {
@@ -653,6 +602,7 @@ export default function App() {
         ? prev.map((u) => (u.id === updatedUser.id ? updatedUser : u))
         : [updatedUser, ...prev];
       localStorage.setItem("artwall_users_directory", JSON.stringify(next));
+      autoSyncUsersToGoogleSheetIfConnected(next).catch(console.warn);
       return next;
     });
 
@@ -671,42 +621,6 @@ export default function App() {
       } else {
         setCurrentTab("gallery");
       }
-    }
-  };
-
-  const handleSwitchToPreset = (presetUser: TelegramUser) => {
-    let sanitized = { ...presetUser };
-    // STRICT SECURITY: Non-authorized Telegram users can NEVER switch to or activate the admin account
-    if (sanitized.role === "admin" && !isAuthorizedAdmin(sanitized)) {
-      sanitized.role = "buyer";
-    }
-    // Cross-verify with real Telegram environment
-    if (sanitized.role === "admin" && !isAuthorizedAdmin(user)) {
-      sanitized.role = "buyer";
-    }
-
-    setUser(sanitized);
-    localStorage.setItem("artwall_user", JSON.stringify(sanitized));
-    setTargetProfileUser(null);
-    setUsersDirectory((prev) => {
-      const exists = prev.find((u) => u.id === sanitized.id);
-      const next = exists
-        ? prev.map((u) => (u.id === sanitized.id ? sanitized : u))
-        : [sanitized, ...prev];
-      localStorage.setItem("artwall_users_directory", JSON.stringify(next));
-      return next;
-    });
-
-    if (window.Telegram?.WebApp?.HapticFeedback) {
-      window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-    }
-
-    if (sanitized.role === "artist") {
-      setCurrentTab("studio");
-    } else if (sanitized.role === "admin") {
-      setCurrentTab("admin");
-    } else {
-      setCurrentTab("gallery");
     }
   };
 
@@ -1023,7 +937,6 @@ export default function App() {
         onClose={() => setIsRoleSwitcherOpen(false)}
         currentUser={user}
         onSwitchRole={(role, navigate) => handleSwitchRole(role, navigate)}
-        onSwitchToPreset={handleSwitchToPreset}
         lang={lang}
       />
     </div>

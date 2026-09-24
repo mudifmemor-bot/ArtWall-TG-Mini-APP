@@ -18,90 +18,8 @@ const DATA_DIR = path.resolve(__dirname, "data");
 const USERS_FILE = path.resolve(DATA_DIR, "users.json");
 const ARTWORKS_FILE = path.resolve(DATA_DIR, "artworks.json");
 
-// Default initial users
-const DEFAULT_USERS = [
-  {
-    id: 101,
-    first_name: "Elena",
-    last_name: "Rostova",
-    username: "elena_art_studio",
-    phone_number: "+998 90 987 65 43",
-    photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Contemporary mixed media artist creating spatial dialogue through texture and light.",
-    location: "Tashkent Studio",
-    createdAt: "2026-03-01T10:00:00.000Z",
-  },
-  {
-    id: 102,
-    first_name: "Azizbek",
-    last_name: "Karimov",
-    username: "aziz_samarkand_art",
-    phone_number: "+998 93 456 78 90",
-    photo_url: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Ceramic textured acrylics and architectural heritage.",
-    location: "Samarkand",
-    createdAt: "2026-03-05T12:00:00.000Z",
-  },
-  {
-    id: 103,
-    first_name: "Mikhail",
-    last_name: "Voronin",
-    username: "voronin_m_art",
-    phone_number: "+998 97 123 99 88",
-    photo_url: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=200",
-    role: "artist",
-    bio: "Minimalist geometry and atmospheric tones.",
-    location: "Tashkent",
-    createdAt: "2026-03-10T14:30:00.000Z",
-  },
-  {
-    id: 201,
-    first_name: "Rustam",
-    last_name: "Aliev",
-    username: "rustam_collector",
-    phone_number: "+998 91 234 56 78",
-    photo_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Tashkent",
-    createdAt: "2026-03-12T09:15:00.000Z",
-  },
-  {
-    id: 202,
-    first_name: "Daria",
-    last_name: "Sokolova",
-    username: "daria_artlover",
-    phone_number: "+7 701 555 43 21",
-    photo_url: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Almaty",
-    createdAt: "2026-03-15T11:20:00.000Z",
-  },
-  {
-    id: 203,
-    first_name: "Farrukh",
-    last_name: "Khamidov",
-    username: "farrukh_interior",
-    phone_number: "+998 99 888 77 66",
-    photo_url: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=200",
-    role: "buyer",
-    location: "Tashkent",
-    createdAt: "2026-03-18T16:45:00.000Z",
-  },
-  {
-    id: 999,
-    first_name: "Muxammadsiddiq",
-    last_name: "Admin",
-    username: "muxammadsiddiq_23",
-    phone_number: "+998 90 123 45 67",
-    photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-    role: "admin",
-    bio: "Chief curator & Art Wall platform operations administrator.",
-    location: "HQ Tashkent",
-    createdAt: "2026-01-01T00:00:00.000Z",
-  },
-];
+// Default initial users (Empty - strictly real Telegram users only)
+const DEFAULT_USERS: any[] = [];
 
 // Ensure data directory exists
 function ensureStorage() {
@@ -109,7 +27,7 @@ function ensureStorage() {
     fs.mkdirSync(DATA_DIR, { recursive: true });
   }
   if (!fs.existsSync(USERS_FILE)) {
-    fs.writeFileSync(USERS_FILE, JSON.stringify(DEFAULT_USERS, null, 2), "utf-8");
+    fs.writeFileSync(USERS_FILE, JSON.stringify([], null, 2), "utf-8");
   }
   if (!fs.existsSync(ARTWORKS_FILE)) {
     fs.writeFileSync(ARTWORKS_FILE, JSON.stringify([], null, 2), "utf-8");
@@ -123,7 +41,7 @@ function readUsers(): any[] {
     return JSON.parse(raw);
   } catch (err) {
     console.error("Error reading users:", err);
-    return DEFAULT_USERS;
+    return [];
   }
 }
 
@@ -245,6 +163,16 @@ app.post("/api/users/batch", (req: Request, res: Response) => {
     res.json({ success: true, count: merged.length, users: merged });
   } catch (err: any) {
     res.status(500).json({ error: err.message || "Failed to batch save users" });
+  }
+});
+
+// DELETE all users from database (Admin reset)
+app.delete("/api/users", (_req: Request, res: Response) => {
+  try {
+    writeUsers([]);
+    res.json({ success: true, message: "All users deleted successfully", count: 0 });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || "Failed to clear users" });
   }
 });
 

@@ -66,7 +66,7 @@ export const OnboardingModal: React.FC<Props> = ({
   );
 
   const [firstName, setFirstName] = useState(
-    currentUser?.first_name || realTg?.first_name || (isInitialMuxammadSiddiq ? "Muxammadsiddiq" : "Alex")
+    currentUser?.first_name || realTg?.first_name || (isInitialMuxammadSiddiq ? "Muxammadsiddiq" : "")
   );
   const [lastName, setLastName] = useState(
     currentUser?.last_name || realTg?.last_name || (isInitialMuxammadSiddiq ? "Admin" : "")
@@ -76,7 +76,7 @@ export const OnboardingModal: React.FC<Props> = ({
     currentUser?.bio ||
       (isInitialMuxammadSiddiq
         ? "Art Wall platform founder & curation overview."
-        : "Contemporary art lover exploring tactile wall stagings.")
+        : "")
   );
   const [location, setLocation] = useState(currentUser?.location || "Tashkent, Uzbekistan");
 
@@ -228,35 +228,33 @@ export const OnboardingModal: React.FC<Props> = ({
       finalRole = "buyer";
     }
 
+    const userFirstName = firstName.trim() || (finalRole === "admin" ? "Muxammadsiddiq" : "User");
+    const avatarInitials = encodeURIComponent(userFirstName.slice(0, 2).toUpperCase() || "TG");
+    const fallbackAvatar = `https://ui-avatars.com/api/?name=${avatarInitials}&background=2AABEE&color=ffffff&size=200&bold=true`;
+
     const finalizedUser: TelegramUser = {
       id:
         currentUser?.id ||
         realTg?.id ||
-        (finalRole === "admin" ? 999 : Math.floor(10000000 + Math.random() * 90000000)),
-      first_name:
-        firstName.trim() ||
-        (finalRole === "admin" ? "Muxammadsiddiq" : finalRole === "artist" ? "Artist" : "Collector"),
+        (finalRole === "admin" ? 999 : Date.now()),
+      first_name: userFirstName,
       last_name: lastName.trim() || undefined,
       username:
         finalUsername ||
-        (finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : finalRole === "artist" ? "artwall_artist" : "artwall_collector"),
+        (finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : undefined),
       phone_number: phoneNumber.trim() || undefined,
       photo_url:
         currentUser?.photo_url ||
         realTg?.photo_url ||
-        (finalRole === "admin"
-          ? "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200"
-          : finalRole === "artist"
-          ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
-          : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"),
+        fallbackAvatar,
       role: finalRole,
       bio:
         bio.trim() ||
         (finalRole === "admin"
           ? "Art Wall platform founder & curation overview."
           : finalRole === "artist"
-          ? "Contemporary mixed media artist creating spatial dialogue through texture."
-          : "Art collector seeking original statement pieces."),
+          ? "Contemporary artist creating spatial artwork collections."
+          : "Art collector exploring tactile wall stagings."),
       location: location.trim() || "Tashkent, Uzbekistan",
       createdAt: currentUser?.createdAt || new Date().toISOString(),
     };

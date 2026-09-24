@@ -26,7 +26,6 @@ interface Props {
   onClose: () => void;
   currentUser: TelegramUser | null;
   onSwitchRole: (newRole: UserRole, navigateToWindow?: boolean) => void;
-  onSwitchToPreset?: (presetUser: TelegramUser) => void;
   lang: Language;
 }
 
@@ -35,7 +34,6 @@ export const RoleSwitcherModal: React.FC<Props> = ({
   onClose,
   currentUser,
   onSwitchRole,
-  onSwitchToPreset,
   lang,
 }) => {
   const t = translations[lang];
@@ -264,38 +262,9 @@ export const RoleSwitcherModal: React.FC<Props> = ({
                   <div className="mb-3 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-light">
                       {lang === "ru"
-                        ? `Административный доступ зарезервирован за @${ADMIN_TELEGRAM_USERNAME}. Если вы являетесь @${ADMIN_TELEGRAM_USERNAME}, нажмите для входа:`
-                        : `Admin access is reserved for @${ADMIN_TELEGRAM_USERNAME}. If you are @${ADMIN_TELEGRAM_USERNAME}, tap below to sign in:`}
+                        ? `Административный доступ зарезервирован за Telegram-аккаунтом @${ADMIN_TELEGRAM_USERNAME}.`
+                        : `Admin access is reserved exclusively for Telegram account @${ADMIN_TELEGRAM_USERNAME}.`}
                     </span>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (onSwitchToPreset) {
-                          onSwitchToPreset({
-                            id: 999,
-                            first_name: "Muxammadsiddiq",
-                            last_name: "Admin",
-                            username: ADMIN_TELEGRAM_USERNAME,
-                            phone_number: "+998 90 123 45 67",
-                            photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                            role: "admin",
-                            bio: "Art Wall platform operations, curation & founder analytics.",
-                            location: "HQ Tashkent, Uzbekistan",
-                          });
-                        } else {
-                          onSwitchRole("admin", true);
-                        }
-                        if (window.Telegram?.WebApp?.HapticFeedback) {
-                          window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                        }
-                        onClose();
-                      }}
-                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <ShieldCheck size={13} />
-                      <span>{lang === "ru" ? "Войти как @muxammadsiddiq_23" : "Sign in as @muxammadsiddiq_23"}</span>
-                    </button>
                   </div>
                 )}
 
@@ -346,107 +315,6 @@ export const RoleSwitcherModal: React.FC<Props> = ({
               </div>
             );
           })}
-        </div>
-
-        {/* Demo Fast Login Presets */}
-        <div className="p-4 rounded-2xl bg-[#E8E6E1]/50 border border-[#D6D2C4]/60">
-          <div className="flex items-center justify-between gap-2 flex-wrap mb-2">
-            <span className="text-xs font-bold uppercase tracking-wider text-neutral-600 flex items-center gap-1.5">
-              <UserCheck size={14} />
-              {lang === "ru" ? "Быстрый вход под проверенными аккаунтами:" : "Quick Verified Accounts:"}
-            </span>
-          </div>
-
-          <div className={`grid grid-cols-1 ${canAccessAdmin ? "sm:grid-cols-3" : "sm:grid-cols-2"} gap-2`}>
-            <button
-              type="button"
-              onClick={() => {
-                if (onSwitchToPreset) {
-                  onSwitchToPreset({
-                    id: 201,
-                    first_name: "Damir",
-                    last_name: "Alimov",
-                    username: "damir_collector",
-                    photo_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
-                    role: "buyer",
-                    bio: "Curating tactile contemporary paintings for modern residential collections.",
-                    location: "Tashkent, Uzbekistan",
-                  });
-                  onClose();
-                } else {
-                  handleSelectRole("buyer", true);
-                }
-              }}
-              className="px-3 py-2 rounded-xl bg-white border border-neutral-200 text-left hover:border-black transition-all group"
-            >
-              <span className="text-xs font-bold text-neutral-800 block group-hover:text-black">
-                Damir Alimov
-              </span>
-              <span className="text-[10px] text-neutral-500 block">
-                🛍️ {lang === "ru" ? "Покупатель (Buyer)" : "Buyer / Collector"}
-              </span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                if (onSwitchToPreset) {
-                  onSwitchToPreset({
-                    id: 101,
-                    first_name: "Elena",
-                    last_name: "Rostova",
-                    username: "elena_art_studio",
-                    photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-                    role: "artist",
-                    bio: "Contemporary tactile abstractions, mixed media textures, and spatial minimalism.",
-                    location: "Studio 4B, Tashkent",
-                  });
-                  onClose();
-                } else {
-                  handleSelectRole("artist", true);
-                }
-              }}
-              className="px-3 py-2 rounded-xl bg-white border border-[#6B7B62]/40 text-left hover:border-[#6B7B62] transition-all group"
-            >
-              <span className="text-xs font-bold text-neutral-800 block group-hover:text-[#6B7B62]">
-                Elena Rostova
-              </span>
-              <span className="text-[10px] text-[#6B7B62] block font-medium">
-                🎨 {lang === "ru" ? "Художник (Artist)" : "Artist / 4 Artworks"}
-              </span>
-            </button>
-
-            {canAccessAdmin && (
-              <button
-                type="button"
-                onClick={() => {
-                  if (onSwitchToPreset) {
-                    onSwitchToPreset({
-                      id: 999,
-                      first_name: "Muxammadsiddiq",
-                      last_name: "Admin",
-                      username: ADMIN_TELEGRAM_USERNAME,
-                      photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                      role: "admin",
-                      bio: "Founder, curation & platform analytics operations.",
-                      location: "HQ Tashkent",
-                    });
-                    onClose();
-                  } else {
-                    handleSelectRole("admin", true);
-                  }
-                }}
-                className="px-3 py-2 rounded-xl bg-white border border-[#2D3748]/40 text-left hover:border-[#2D3748] transition-all group ring-1 ring-[#2D3748]/10"
-              >
-                <span className="text-xs font-bold text-neutral-800 block group-hover:text-[#2D3748]">
-                  Muxammadsiddiq
-                </span>
-                <span className="text-[10px] text-[#2D3748] block font-semibold">
-                  🛡️ @{ADMIN_TELEGRAM_USERNAME} (Admin)
-                </span>
-              </button>
-            )}
-          </div>
         </div>
       </div>
     </div>
