@@ -84,7 +84,7 @@ export const BasketDrawer: React.FC<Props> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-md h-full shadow-2xl flex flex-col justify-between p-5 sm:p-7 relative border-l border-neutral-200 overflow-y-auto">
+      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-full sm:max-w-md h-full shadow-2xl flex flex-col justify-between p-4 sm:p-7 relative border-l border-neutral-200 overflow-y-auto">
         {/* Header */}
         <div>
           <div className="flex items-center justify-between pb-3.5 border-b border-neutral-200 mb-5">

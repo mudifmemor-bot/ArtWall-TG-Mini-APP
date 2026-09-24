@@ -80,14 +80,14 @@ export const Marketplace: React.FC<Props> = ({
   }, [artworks, selectedCategory, searchTerm, sortBy]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden animate-in fade-in duration-300">
       {/* Hero Header */}
       <div className="mb-6 sm:mb-8 text-center sm:text-left flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#E8E6E1] pb-6">
         <div>
           <span className="text-[11px] font-bold tracking-widest text-[#6B7B62] uppercase mb-1 block">
             Curated Telegram Art Space
           </span>
-          <h1 className="font-serif-custom text-3xl sm:text-4xl font-light italic tracking-tight text-[#1A1A1A]">
+          <h1 className="font-serif-custom text-2xl sm:text-4xl font-light italic tracking-tight text-[#1A1A1A]">
             {t.exploreArtworks}
           </h1>
           <p className="text-xs sm:text-sm text-neutral-600 font-light max-w-xl mt-1">
@@ -145,7 +145,7 @@ export const Marketplace: React.FC<Props> = ({
       </div>
 
       {/* Category Pills */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2.5 mb-6 scrollbar-none touch-pan-x">
+      <div className="w-full max-w-full flex items-center gap-2 overflow-x-auto pb-2.5 mb-6 no-scrollbar touch-pan-x">
         {categories.map((cat) => (
           <button
             key={cat.id}

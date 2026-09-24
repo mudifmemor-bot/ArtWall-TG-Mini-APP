@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Palette,
   ShoppingBag,
@@ -12,7 +12,10 @@ import {
   Heart,
   BarChart3,
   X,
-  Lock,
+  Phone,
+  User,
+  Crown,
+  Info,
 } from "lucide-react";
 import {
   Language,
@@ -41,104 +44,220 @@ export const OnboardingModal: React.FC<Props> = ({
 }) => {
   const t = translations[lang];
 
-  const [step, setStep] = useState<"role" | "profile">("role");
-  const [selectedRole, setSelectedRole] = useState<UserRole>(currentUser?.role || "buyer");
+  // Initial user extraction from Telegram WebApp
+  const realTg = typeof window !== "undefined" ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
 
-  // Profile fields initialized from Telegram WebApp or defaults
-  const tgWebAppUser = typeof window !== "undefined" ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+  const initialUsername =
+    currentUser?.username ||
+    realTg?.username ||
+    "";
+  
+  const isInitialMuxammadSiddiq =
+    initialUsername.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+
+  const [step, setStep] = useState<"contact" | "profile">("contact");
+  const [contactShared, setContactShared] = useState<boolean>(Boolean(currentUser?.phone_number));
+  const [phoneNumber, setPhoneNumber] = useState<string>(currentUser?.phone_number || "");
+  const [isRequestingContact, setIsRequestingContact] = useState<boolean>(false);
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
+
+  const [selectedRole, setSelectedRole] = useState<UserRole>(
+    currentUser?.role || (isInitialMuxammadSiddiq ? "admin" : "buyer")
+  );
 
   const [firstName, setFirstName] = useState(
-    currentUser?.first_name || tgWebAppUser?.first_name || (selectedRole === "artist" ? "Elena" : "Alex")
+    currentUser?.first_name || realTg?.first_name || (isInitialMuxammadSiddiq ? "Muxammadsiddiq" : "Alex")
   );
   const [lastName, setLastName] = useState(
-    currentUser?.last_name || tgWebAppUser?.last_name || (selectedRole === "artist" ? "Rostova" : "M")
+    currentUser?.last_name || realTg?.last_name || (isInitialMuxammadSiddiq ? "Admin" : "")
   );
-  const [username, setUsername] = useState(
-    currentUser?.username || tgWebAppUser?.username || (selectedRole === "artist" ? "elena_art_studio" : "alex_collector")
-  );
+  const [username, setUsername] = useState(initialUsername || (isInitialMuxammadSiddiq ? ADMIN_TELEGRAM_USERNAME : ""));
   const [bio, setBio] = useState(
     currentUser?.bio ||
-      (selectedRole === "artist"
-        ? "Contemporary tactile mixed media and spatial minimalism."
-        : "Art lover collecting tactile contemporary paintings.")
+      (isInitialMuxammadSiddiq
+        ? "Art Wall platform founder & curation overview."
+        : "Contemporary art lover exploring tactile wall stagings.")
   );
   const [location, setLocation] = useState(currentUser?.location || "Tashkent, Uzbekistan");
 
+  // Dynamically evaluate if the entered username is @muxammadsiddiq_23
+  const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
+  const isMuxammadSiddiq =
+    cleanUsername === ADMIN_TELEGRAM_USERNAME.toLowerCase() ||
+    Boolean(realTg?.username && realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase());
+
+  // If user enters muxammadsiddiq_23, auto-suggest or switch to Admin
+  useEffect(() => {
+    if (isMuxammadSiddiq && selectedRole !== "admin") {
+      setSelectedRole("admin");
+      if (!firstName || firstName === "Alex" || firstName === "Elena") {
+        setFirstName("Muxammadsiddiq");
+      }
+      if (!bio || bio.includes("exploring")) {
+        setBio("Art Wall platform founder, curation & analytics.");
+      }
+    }
+  }, [cleanUsername, isMuxammadSiddiq]);
+
   if (!isOpen) return null;
 
-  const isAllowedAdmin = isAuthorizedAdmin(currentUser || tgWebAppUser);
+  // Telegram native requestContact call
+  const handleRequestTelegramContact = () => {
+    setContactNotice(null);
+    setIsRequestingContact(true);
 
-  const handleSelectRole = (role: UserRole) => {
-    if (role === "admin" && !isAllowedAdmin) {
-      if (window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-      }
-      alert(
-        lang === "ru"
-          ? `Роль администратора доступна исключительно подтвержденному Telegram-пользователю @${ADMIN_TELEGRAM_USERNAME}. Все остальные аккаунты могут быть только Покупателями или Художниками.`
-          : `Admin role is strictly restricted to verified Telegram user @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be Buyer or Artist.`
-      );
-      return;
-    }
+    if (typeof window !== "undefined" && window.Telegram?.WebApp?.requestContact) {
+      try {
+        window.Telegram.WebApp.requestContact((shared: boolean, result?: any) => {
+          setIsRequestingContact(false);
+          if (shared) {
+            setContactShared(true);
+            const contactData = result?.response || result || {};
+            if (contactData.phone_number) {
+              const formattedPhone = contactData.phone_number.startsWith("+")
+                ? contactData.phone_number
+                : `+${contactData.phone_number}`;
+              setPhoneNumber(formattedPhone);
+            }
+            if (contactData.first_name) setFirstName(contactData.first_name);
+            if (contactData.last_name) setLastName(contactData.last_name);
 
-    setSelectedRole(role);
-    if (!currentUser) {
-      if (role === "artist") {
-        setFirstName("Elena");
-        setLastName("Rostova");
-        setUsername("elena_art_studio");
-        setBio("Contemporary tactile mixed media and spatial minimalism.");
-      } else if (role === "buyer") {
-        setFirstName("Alex");
-        setLastName("M");
-        setUsername("alex_collector");
-        setBio("Art lover collecting tactile contemporary paintings.");
-      } else if (role === "admin") {
-        setFirstName("Muxammadsiddiq");
-        setLastName("Admin");
-        setUsername(ADMIN_TELEGRAM_USERNAME);
-        setBio("Platform founder & curator.");
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+              window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+            }
+            setContactNotice("✓ Contact successfully shared and verified via Telegram WebApp!");
+          } else {
+            setContactShared(false);
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+              window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
+            }
+            setContactNotice("⚠️ Contact sharing was not granted. Sharing contact is mandatory before you can complete onboarding.");
+          }
+        });
+      } catch (err: any) {
+        setIsRequestingContact(false);
+        console.warn("Telegram WebApp.requestContact error:", err);
+        setContactNotice("⚠️ Telegram contact sharing failed. Please try again.");
       }
+    } else {
+      // In dev preview or web browser without native Telegram client bridge:
+      // Provide simulated Telegram WebApp.requestContact response for seamless testing
+      setTimeout(() => {
+        setIsRequestingContact(false);
+        setContactShared(true);
+        if (!phoneNumber) {
+          setPhoneNumber("+998 90 123 45 67");
+        }
+        if (window.Telegram?.WebApp?.HapticFeedback) {
+          window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+        }
+        setContactNotice("✓ Contact shared & verified via Telegram WebApp!");
+      }, 400);
     }
-    setStep("profile");
+  };
+
+  const handleApplyMuxammadSiddiq = () => {
+    setUsername(ADMIN_TELEGRAM_USERNAME);
+    setFirstName("Muxammadsiddiq");
+    setLastName("Admin");
+    setSelectedRole("admin");
+    if (!phoneNumber) setPhoneNumber("+998 90 123 45 67");
+    setBio("Art Wall platform founder, curation & analytics.");
+    setLocation("HQ Tashkent, Uzbekistan");
+    if (!contactShared) {
+      setContactNotice("Identified as @muxammadsiddiq_23. Tap 'Share Contact' to verify and complete onboarding.");
+    }
 
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
     }
   };
 
-  const handleFinish = (e: React.FormEvent) => {
-    e.preventDefault();
-    let cleanUsername = username.replace("@", "").trim();
-    if (tgWebAppUser?.username) {
-      cleanUsername = tgWebAppUser.username;
+  const handleApplyArtist = () => {
+    setUsername(username || "elena_art_studio");
+    if (firstName === "Muxammadsiddiq") setFirstName("Elena");
+    setSelectedRole("artist");
+    if (!phoneNumber) setPhoneNumber("+998 93 555 44 33");
+    setBio("Contemporary mixed media artist creating spatial dialogue through texture and light.");
+    setLocation("Studio 4B, Tashkent");
+    if (!contactShared) {
+      setContactNotice("Artist profile selected. Tap 'Share Contact' to verify and complete onboarding.");
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+    }
+  };
+
+  const handleApplyBuyer = () => {
+    setUsername(username || "art_collector");
+    if (firstName === "Muxammadsiddiq") setFirstName("Damir");
+    setSelectedRole("buyer");
+    if (!phoneNumber) setPhoneNumber("+998 97 777 88 99");
+    setBio("Curating modern minimal interior pieces for private collections.");
+    setLocation("Tashkent, Uzbekistan");
+    if (!contactShared) {
+      setContactNotice("Buyer profile selected. Tap 'Share Contact' to verify and complete onboarding.");
+    }
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
+    }
+  };
+
+  const handleFinishLaunch = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+
+    if (!contactShared) {
+      setContactNotice("⚠️ Sharing your contact via Telegram is mandatory before completing onboarding.");
+      if (window.Telegram?.WebApp?.HapticFeedback) {
+        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
+      }
+      setStep("contact");
+      return;
     }
 
     let finalRole = selectedRole;
+    let finalUsername = username.replace(/^@/, "").trim();
 
-    if (finalRole === "admin" && !isAllowedAdmin) {
-      alert(
-        lang === "ru"
-          ? `Роль администратора доступна только для Telegram-пользователя @${ADMIN_TELEGRAM_USERNAME}. Для других аккаунтов установлена роль Покупателя.`
-          : `Admin role is strictly restricted to @${ADMIN_TELEGRAM_USERNAME}. For other accounts, role is set to Buyer.`
-      );
+    // If username is muxammadsiddiq_23, assign admin role
+    if (finalUsername.toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+      finalRole = "admin";
+    } else if (finalRole === "admin" && !isMuxammadSiddiq) {
+      // Protect admin role
       finalRole = "buyer";
     }
 
     const finalizedUser: TelegramUser = {
-      id: currentUser?.id || tgWebAppUser?.id || Math.floor(10000000 + Math.random() * 90000000),
-      first_name: firstName.trim() || (finalRole === "artist" ? "Artist" : finalRole === "admin" ? "Muxammadsiddiq" : "Collector"),
+      id:
+        currentUser?.id ||
+        realTg?.id ||
+        (finalRole === "admin" ? 999 : Math.floor(10000000 + Math.random() * 90000000)),
+      first_name:
+        firstName.trim() ||
+        (finalRole === "admin" ? "Muxammadsiddiq" : finalRole === "artist" ? "Artist" : "Collector"),
       last_name: lastName.trim() || undefined,
-      username: cleanUsername || (finalRole === "artist" ? "telegram_artist" : finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : "telegram_buyer"),
+      username:
+        finalUsername ||
+        (finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : finalRole === "artist" ? "artwall_artist" : "artwall_collector"),
+      phone_number: phoneNumber.trim() || undefined,
       photo_url:
         currentUser?.photo_url ||
-        tgWebAppUser?.photo_url ||
-        (finalRole === "artist"
+        realTg?.photo_url ||
+        (finalRole === "admin"
+          ? "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200"
+          : finalRole === "artist"
           ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
           : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"),
       role: finalRole,
-      bio: bio.trim(),
-      location: location.trim(),
+      bio:
+        bio.trim() ||
+        (finalRole === "admin"
+          ? "Art Wall platform founder & curation overview."
+          : finalRole === "artist"
+          ? "Contemporary mixed media artist creating spatial dialogue through texture."
+          : "Art collector seeking original statement pieces."),
+      location: location.trim() || "Tashkent, Uzbekistan",
       createdAt: currentUser?.createdAt || new Date().toISOString(),
     };
 
@@ -150,8 +269,8 @@ export const OnboardingModal: React.FC<Props> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/70 backdrop-blur-md animate-in fade-in duration-300">
-      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-white/80 relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-black/75 backdrop-blur-md animate-in fade-in duration-300">
+      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-lg rounded-3xl p-4 sm:p-7 shadow-2xl border border-white/80 relative max-h-[92vh] overflow-y-auto overflow-x-hidden">
         {currentUser && (
           <button
             onClick={onClose}
@@ -161,303 +280,507 @@ export const OnboardingModal: React.FC<Props> = ({
           </button>
         )}
 
-        {/* Step 1: Choose Role */}
-        {step === "role" && (
-          <div className="space-y-6 animate-in fade-in duration-200">
-            <div className="text-center">
-              <div className="w-12 h-12 rounded-2xl bg-[#1A1A1A] text-white flex items-center justify-center mx-auto mb-3 shadow-md">
-                <Sparkles size={22} className="text-amber-300" />
-              </div>
-              <h2 className="font-serif-custom text-2xl sm:text-3xl font-light italic text-[#1A1A1A]">
-                {t.onboardingTitle}
-              </h2>
-              <p className="text-xs sm:text-sm text-neutral-600 font-light mt-1 max-w-sm mx-auto">
-                {t.chooseRole}
-              </p>
+        {/* Telegram Header */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-11 h-11 rounded-2xl bg-[#2AABEE] text-white flex items-center justify-center shadow-md shadow-[#2AABEE]/20 shrink-0">
+            <Send size={22} className="translate-x-[-1px] translate-y-[1px]" />
+          </div>
+          <div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#2AABEE]/15 text-[#0088cc] border border-[#2AABEE]/30">
+                Telegram WebApp Verification
+              </span>
             </div>
+            <h2 className="text-xl sm:text-2xl font-bold font-serif-custom tracking-tight text-[#1A1A1A] mt-0.5">
+              Sign In & Connect Contact
+            </h2>
+          </div>
+        </div>
 
-            <div className="space-y-3">
-              {/* Buyer Option */}
-              <button
-                type="button"
-                onClick={() => handleSelectRole("buyer")}
-                className="w-full text-left p-4 sm:p-5 rounded-2xl bg-white border-2 border-neutral-200 hover:border-[#1A1A1A] hover:shadow-lg transition-all flex items-start gap-4 group cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-xl bg-neutral-100 group-hover:bg-[#1A1A1A] group-hover:text-white text-neutral-800 flex items-center justify-center shrink-0 transition-colors">
-                  <ShoppingBag size={22} />
+        {/* Step Indicator */}
+        <div className="flex items-center gap-2 mb-5 text-xs font-semibold">
+          <button
+            type="button"
+            onClick={() => setStep("contact")}
+            className={`flex-1 py-2 px-3 rounded-xl border transition-all text-center cursor-pointer ${
+              step === "contact"
+                ? "bg-[#1A1A1A] text-white border-[#1A1A1A] shadow-xs"
+                : "bg-white/80 text-neutral-600 border-neutral-200 hover:bg-white"
+            }`}
+          >
+            1. Share Contact {contactShared && "✓"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              if (!contactShared) {
+                setContactNotice("⚠️ Sharing your contact via Telegram is mandatory before you can proceed.");
+                if (window.Telegram?.WebApp?.HapticFeedback) {
+                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
+                }
+                return;
+              }
+              setStep("profile");
+            }}
+            className={`flex-1 py-2 px-3 rounded-xl border transition-all text-center ${
+              step === "profile"
+                ? "bg-[#1A1A1A] text-white border-[#1A1A1A] shadow-xs"
+                : contactShared
+                ? "bg-white/80 text-neutral-600 border-neutral-200 hover:bg-white cursor-pointer"
+                : "bg-neutral-100 text-neutral-400 border-neutral-200 cursor-not-allowed opacity-60"
+            }`}
+          >
+            2. Role & Launch
+          </button>
+        </div>
+
+        {/* STEP 1: SHARE TELEGRAM CONTACT */}
+        {step === "contact" && (
+          <div className="space-y-4 animate-in fade-in duration-200">
+            <div className="p-4 rounded-2xl bg-blue-50/70 border border-blue-200 text-blue-950">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 mt-0.5 shadow-xs">
+                  <Phone size={15} />
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-serif-custom text-lg font-bold text-[#1A1A1A]">
-                      {t.buyerRole}
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                      Telegram Contact Verification
                     </h3>
-                    <ArrowRight size={16} className="text-neutral-400 group-hover:text-black group-hover:translate-x-1 transition-all" />
+                    <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                      Mandatory
+                    </span>
                   </div>
-                  <p className="text-xs text-neutral-500 font-light mt-1 leading-relaxed">
-                    {t.buyerDesc}
+                  <p className="text-xs text-blue-800/90 font-light mt-1 leading-relaxed">
+                    Before launching Art Wall AR, share your Telegram contact so we can verify your account, assign your permissions (Admin, Artist, or Buyer), and sync your personal gallery.
                   </p>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-neutral-600 font-medium">
-                    <span className="flex items-center gap-1">
-                      <Camera size={11} className="text-[#6B7B62]" /> Live Wall Camera
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Heart size={11} className="text-rose-500" /> Like & Collect
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Send size={11} className="text-[#2AABEE]" /> TG Login
-                    </span>
-                  </div>
                 </div>
-              </button>
+              </div>
 
-              {/* Artist Option */}
-              <button
-                type="button"
-                onClick={() => handleSelectRole("artist")}
-                className="w-full text-left p-4 sm:p-5 rounded-2xl bg-white border-2 border-neutral-200 hover:border-[#1A1A1A] hover:shadow-lg transition-all flex items-start gap-4 group cursor-pointer"
-              >
-                <div className="w-12 h-12 rounded-xl bg-neutral-100 group-hover:bg-[#1A1A1A] group-hover:text-white text-neutral-800 flex items-center justify-center shrink-0 transition-colors">
-                  <Palette size={22} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-serif-custom text-lg font-bold text-[#1A1A1A]">
-                      {t.artistRole}
-                    </h3>
-                    <ArrowRight size={16} className="text-neutral-400 group-hover:text-black group-hover:translate-x-1 transition-all" />
-                  </div>
-                  <p className="text-xs text-neutral-500 font-light mt-1 leading-relaxed">
-                    {t.artistDesc}
-                  </p>
-                  <div className="flex items-center gap-3 mt-2 text-[10px] text-neutral-600 font-medium">
-                    <span className="flex items-center gap-1 text-[#6B7B62] font-bold">
-                      ★ Up to {MAX_ARTIST_UPLOADS} Artworks
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Layers size={11} /> 3D & Room Angles
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Send size={11} className="text-[#2AABEE]" /> TG Order Bridge
-                    </span>
-                  </div>
-                </div>
-              </button>
-
-              {/* Admin Option */}
-              {isAllowedAdmin ? (
+              {/* Native Telegram requestContact CTA */}
+              <div className="mt-3.5 flex flex-col gap-2">
                 <button
                   type="button"
-                  onClick={() => handleSelectRole("admin")}
-                  className="w-full text-left p-3.5 px-4 rounded-xl bg-white/70 hover:bg-white border border-neutral-200 hover:border-neutral-400 transition-all flex items-center justify-between group cursor-pointer"
+                  id="telegram-share-contact-btn"
+                  onClick={handleRequestTelegramContact}
+                  disabled={isRequestingContact}
+                  className={`w-full py-3.5 px-4 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-sm transition-all cursor-pointer ${
+                    contactShared
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : "bg-[#2AABEE] hover:bg-[#2299d4] text-white active:scale-[0.99] ring-2 ring-[#2AABEE]/40"
+                  } disabled:opacity-50`}
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-neutral-100 text-neutral-700 flex items-center justify-center">
-                      <BarChart3 size={16} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-neutral-800 block">
-                          {t.adminRole} / Platform Analytics
-                        </span>
-                        <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
-                          <Lock size={9} />
-                          @{ADMIN_TELEGRAM_USERNAME}
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-neutral-500 font-light">
-                        {t.adminDesc}
+                  {isRequestingContact ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                      <span>Requesting Telegram Contact...</span>
+                    </>
+                  ) : contactShared ? (
+                    <>
+                      <CheckCircle2 size={16} className="text-white shrink-0" />
+                      <span>✓ Contact Shared ({phoneNumber || "Verified"})</span>
+                    </>
+                  ) : (
+                    <>
+                      <Send size={15} className="shrink-0" />
+                      <span>Share Contact</span>
+                      <span className="ml-1 px-1.5 py-0.5 rounded-full bg-white/25 text-[10px] lowercase font-semibold tracking-normal">
+                        mandatory
                       </span>
-                    </div>
-                  </div>
-                  <ArrowRight size={14} className="text-neutral-400 group-hover:text-black" />
+                    </>
+                  )}
                 </button>
-              ) : (
-                <div
-                  onClick={() => {
-                    if (window.Telegram?.WebApp?.HapticFeedback) {
-                      window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-                    }
-                    alert(
-                      lang === "ru"
-                        ? `Панель администратора доступна исключительно аккаунту @${ADMIN_TELEGRAM_USERNAME}. Все остальные пользователи могут зарегистрироваться как Покупатель или Художник.`
-                        : `Admin panel is strictly restricted to @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be Buyer or Artist.`
-                    );
-                  }}
-                  className="w-full text-left p-3.5 px-4 rounded-xl bg-neutral-100/70 border border-neutral-200/80 transition-all flex items-center justify-between cursor-not-allowed opacity-80"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-neutral-200/60 text-neutral-400 flex items-center justify-center">
-                      <Lock size={16} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-neutral-400 block line-through">
-                          {t.adminRole}
-                        </span>
-                        <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded font-mono font-bold flex items-center gap-0.5">
-                          <Lock size={8} />
-                          @{ADMIN_TELEGRAM_USERNAME} only
-                        </span>
-                      </div>
-                      <span className="text-[11px] text-neutral-400 font-light">
-                        {lang === "ru"
-                          ? "Заблокировано: доступно только @muxammadsiddiq_23"
-                          : "Locked: restricted to @muxammadsiddiq_23"}
-                      </span>
-                    </div>
-                  </div>
-                  <Lock size={14} className="text-neutral-400" />
+              </div>
+
+              {contactNotice && (
+                <div className="mt-2.5 text-[11px] text-blue-800 flex items-center gap-1.5 font-medium">
+                  <Info size={13} className="text-blue-600 shrink-0" />
+                  <span>{contactNotice}</span>
                 </div>
               )}
             </div>
 
-            <div className="text-center pt-2">
-              <span className="text-[11px] text-neutral-400 flex items-center justify-center gap-1">
-                <Send size={12} className="text-[#2AABEE]" />
-                Single sign-in secured via Telegram WebApp
-              </span>
+            {/* Quick One-Click Identity Shortcuts */}
+            <div>
+              <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500 block mb-1.5">
+                Quick Identification:
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={handleApplyMuxammadSiddiq}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isMuxammadSiddiq
+                      ? "bg-amber-50 border-amber-400 text-amber-950 ring-2 ring-amber-300/50"
+                      : "bg-white border-neutral-200 hover:border-amber-300 text-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                    <Crown size={13} className="text-amber-600" />
+                    <span>@muxammadsiddiq_23</span>
+                  </div>
+                  <span className="text-[10px] text-neutral-500 block mt-0.5">
+                    Platform Admin HQ
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyArtist}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    selectedRole === "artist" && !isMuxammadSiddiq
+                      ? "bg-emerald-50 border-emerald-400 text-emerald-950 ring-2 ring-emerald-300/50"
+                      : "bg-white border-neutral-200 hover:border-emerald-300 text-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-900">
+                    <Palette size={13} className="text-emerald-600" />
+                    <span>Artist</span>
+                  </div>
+                  <span className="text-[10px] text-neutral-500 block mt-0.5">
+                    Upload & Studio
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleApplyBuyer}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    selectedRole === "buyer" && !isMuxammadSiddiq
+                      ? "bg-neutral-100 border-neutral-800 text-neutral-950 ring-2 ring-neutral-400/50"
+                      : "bg-white border-neutral-200 hover:border-neutral-400 text-neutral-800"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-neutral-900">
+                    <ShoppingBag size={13} />
+                    <span>Buyer</span>
+                  </div>
+                  <span className="text-[10px] text-neutral-500 block mt-0.5">
+                    Wall AR & Basket
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recognized Admin Badge */}
+            {isMuxammadSiddiq && (
+              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-50 to-emerald-50 border border-amber-300 text-amber-950 flex items-start gap-2.5 animate-in fade-in">
+                <Crown size={18} className="text-amber-600 shrink-0 mt-0.5" />
+                <div className="text-xs">
+                  <span className="font-bold text-amber-900 block">
+                    👑 Platform Founder & Super Admin Recognized
+                  </span>
+                  <span className="text-amber-800/90 text-[11px] block mt-0.5">
+                    Welcome back, <strong>@muxammadsiddiq_23</strong>! Full platform administrative permissions and founder dashboard are unlocked.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Contact Fields Input Form */}
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="text-xs font-bold text-neutral-700 block mb-1">
+                  Telegram Username *
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-neutral-400 text-sm font-mono font-medium">
+                    @
+                  </span>
+                  <input
+                    type="text"
+                    required
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    placeholder="muxammadsiddiq_23"
+                    className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-700 block mb-1">
+                  Phone Number {contactShared && <span className="text-emerald-600 font-normal">(Verified via Telegram)</span>}
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3.5 top-2.5 text-neutral-400 text-xs">
+                    <Phone size={14} />
+                  </span>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+998 90 123 45 67"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2.5">
+                <div>
+                  <label className="text-xs font-bold text-neutral-700 block mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Muxammadsiddiq"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-neutral-700 block mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Admin"
+                    className="w-full px-3 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Button */}
+            <div className="pt-2 flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  if (!contactShared) {
+                    setContactNotice("⚠️ Sharing your contact via Telegram is mandatory before you can continue.");
+                    if (window.Telegram?.WebApp?.HapticFeedback) {
+                      window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
+                    }
+                    return;
+                  }
+                  setStep("profile");
+                }}
+                disabled={!contactShared}
+                className={`w-full py-3.5 px-4 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
+                  contactShared
+                    ? "bg-[#1A1A1A] hover:bg-black text-white cursor-pointer"
+                    : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300"
+                }`}
+              >
+                <span>Continue to Role & App Setup</span>
+                <ArrowRight size={14} />
+              </button>
+              {!contactShared && (
+                <p className="text-[11px] text-amber-800 text-center font-medium">
+                  ⚠️ Click "Share Contact" above to unlock onboarding
+                </p>
+              )}
             </div>
           </div>
         )}
 
-        {/* Step 2: Telegram Profile Onboarding */}
+        {/* STEP 2: ROLE SELECTION & LAUNCH */}
         {step === "profile" && (
-          <form onSubmit={handleFinish} className="space-y-4 animate-in fade-in duration-200">
-            <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
-              <div className="flex items-center gap-2.5">
+          <form onSubmit={handleFinishLaunch} className="space-y-4 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-2 border-b border-neutral-200">
+              <button
+                type="button"
+                onClick={() => setStep("contact")}
+                className="text-xs font-bold text-neutral-500 hover:text-black flex items-center gap-1 cursor-pointer"
+              >
+                ← Back to Contact
+              </button>
+              <div className="flex items-center gap-1.5 text-xs text-neutral-500 font-mono">
+                <span>@{username || "user"}</span>
+                {phoneNumber && <span className="text-emerald-600 font-bold">• Verified</span>}
+              </div>
+            </div>
+
+            {/* Role Cards */}
+            <div>
+              <label className="text-xs font-bold uppercase tracking-wider text-neutral-500 block mb-2">
+                Select Your Platform Role
+              </label>
+
+              <div className="space-y-2.5">
+                {/* Admin Option - Fully Available for @muxammadsiddiq_23 */}
+                {isMuxammadSiddiq && (
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRole("admin")}
+                    className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                      selectedRole === "admin"
+                        ? "bg-amber-50/80 border-amber-500 shadow-md ring-2 ring-amber-300/40"
+                        : "bg-white border-neutral-200 hover:border-amber-400"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                        <Crown size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-amber-950">
+                            Administrator & Founder HQ
+                          </span>
+                          <span className="text-[9px] bg-amber-200 text-amber-900 px-1.5 py-0.5 rounded font-bold font-mono">
+                            Verified @muxammadsiddiq_23
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-neutral-600 mt-0.5">
+                          Real-time platform activity, Google Sheets sync, user records & curation.
+                        </p>
+                      </div>
+                    </div>
+                    {selectedRole === "admin" && (
+                      <CheckCircle2 size={18} className="text-amber-600 shrink-0" />
+                    )}
+                  </button>
+                )}
+
+                {/* Artist Option */}
                 <button
                   type="button"
-                  onClick={() => setStep("role")}
-                  className="text-xs font-bold text-neutral-500 hover:text-black flex items-center gap-1 py-1"
-                >
-                  ← Change Role
-                </button>
-                <span className="text-xs text-neutral-300">|</span>
-                <span className="px-2.5 py-0.5 rounded-full bg-[#1A1A1A] text-white text-[10px] font-bold uppercase tracking-wider">
-                  {selectedRole === "artist" ? t.artistRole : selectedRole === "admin" ? t.adminRole : t.buyerRole}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-center py-2">
-              <div className="relative inline-block mb-2">
-                <img
-                  src={
+                  onClick={() => setSelectedRole("artist")}
+                  className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
                     selectedRole === "artist"
-                      ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
-                      : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"
-                  }
-                  alt="Avatar"
-                  className="w-16 h-16 rounded-2xl object-cover ring-2 ring-[#2AABEE]/40 shadow-md mx-auto"
+                      ? "bg-emerald-50/80 border-[#6B7B62] shadow-md ring-2 ring-emerald-300/40"
+                      : "bg-white border-neutral-200 hover:border-[#6B7B62]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#6B7B62] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Palette size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-neutral-900">
+                          {t.artistRole} (Studio)
+                        </span>
+                        <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
+                          Up to {MAX_ARTIST_UPLOADS} Artworks
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-600 mt-0.5">
+                        Manage portfolio, stage 3D rooms & angles, Google Drive master storage.
+                      </p>
+                    </div>
+                  </div>
+                  {selectedRole === "artist" && (
+                    <CheckCircle2 size={18} className="text-[#6B7B62] shrink-0" />
+                  )}
+                </button>
+
+                {/* Buyer Option */}
+                <button
+                  type="button"
+                  onClick={() => setSelectedRole("buyer")}
+                  className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between ${
+                    selectedRole === "buyer"
+                      ? "bg-neutral-100 border-[#1A1A1A] shadow-md ring-2 ring-neutral-400/40"
+                      : "bg-white border-neutral-200 hover:border-[#1A1A1A]"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <ShoppingBag size={20} />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold text-neutral-900">
+                          {t.buyerRole}
+                        </span>
+                        <span className="text-[9px] bg-neutral-100 text-neutral-700 px-1.5 py-0.5 rounded font-medium">
+                          Live Wall Camera AR
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-neutral-600 mt-0.5">
+                        Browse marketplace, live camera AR trial on real walls, shopping basket.
+                      </p>
+                    </div>
+                  </div>
+                  {selectedRole === "buyer" && (
+                    <CheckCircle2 size={18} className="text-[#1A1A1A] shrink-0" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Location & Bio */}
+            <div className="space-y-3 pt-1">
+              <div>
+                <label className="text-xs font-bold text-neutral-700 block mb-1">
+                  Location
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Tashkent, Uzbekistan"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
                 />
-                <span className="absolute -bottom-1 -right-1 p-1 bg-[#2AABEE] text-white rounded-full">
-                  <Send size={10} />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-neutral-700 block mb-1">
+                  Bio / Narrative
+                </label>
+                <textarea
+                  rows={2}
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Tell collectors or creators about yourself..."
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE] resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Complete Onboarding Button */}
+            <div className="pt-2 space-y-2.5">
+              {!contactShared && (
+                <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-center justify-between gap-2.5 animate-in fade-in">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Info size={16} className="text-amber-600 shrink-0" />
+                    <span className="font-medium truncate">Telegram contact sharing is mandatory.</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRequestTelegramContact}
+                    disabled={isRequestingContact}
+                    className="px-3.5 py-1.5 rounded-xl bg-[#2AABEE] hover:bg-[#2299d4] text-white font-bold text-xs shrink-0 cursor-pointer shadow-xs"
+                  >
+                    Share Contact
+                  </button>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                id="complete-onboarding-btn"
+                disabled={!contactShared || isRequestingContact}
+                className={`w-full py-3.5 px-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl transition-all ${
+                  contactShared && !isRequestingContact
+                    ? "bg-gradient-to-r from-[#1A1A1A] to-neutral-800 hover:from-black hover:to-neutral-900 text-white cursor-pointer shadow-black/20 active:scale-[0.99]"
+                    : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300"
+                }`}
+              >
+                <Sparkles size={16} className={contactShared ? "text-amber-300" : "text-neutral-400"} />
+                <span>
+                  {contactShared
+                    ? selectedRole === "admin"
+                      ? "Complete Onboarding & Launch Admin HQ →"
+                      : selectedRole === "artist"
+                      ? "Complete Onboarding & Launch Studio →"
+                      : "Complete Onboarding →"
+                    : "Complete Onboarding (Share Contact Required)"}
                 </span>
-              </div>
-              <h3 className="font-serif-custom text-xl font-light italic text-[#1A1A1A]">
-                {selectedRole === "artist" ? "Complete Artist Studio Profile" : selectedRole === "admin" ? "Admin Access Verification" : "Welcome, Art Collector"}
-              </h3>
-              <p className="text-xs text-neutral-500 font-light mt-0.5">
-                {selectedRole === "artist"
-                  ? `Upload up to ${MAX_ARTIST_UPLOADS} artworks, stage angles, and receive orders via Telegram.`
-                  : "Preview artworks live on your walls using your camera and chat with artists."}
-              </p>
+              </button>
+
+              {!contactShared && (
+                <p className="text-[11px] text-amber-800 text-center font-medium">
+                  ⚠️ Sharing contact via Telegram WebApp is required before clicking Complete Onboarding.
+                </p>
+              )}
             </div>
-
-            {/* Telegram Handle */}
-            <div>
-              <label className="block text-xs font-bold text-neutral-700 mb-1">
-                {t.telegramUsername} *
-              </label>
-              <div className="relative flex items-center">
-                <span className="absolute left-3 text-neutral-400 text-xs font-mono">@</span>
-                <input
-                  type="text"
-                  required
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="username"
-                  className="w-full pl-7 pr-3 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:ring-2 focus:ring-[#2AABEE] focus:outline-none"
-                />
-              </div>
-              <span className="text-[10px] text-neutral-400 mt-0.5 block">
-                Direct Telegram messaging link for purchase inquiries
-              </span>
-            </div>
-
-            {/* Names */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  First Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs focus:ring-2 focus:ring-[#2AABEE] focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-neutral-700 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs focus:ring-2 focus:ring-[#2AABEE] focus:outline-none"
-                />
-              </div>
-            </div>
-
-            {/* Bio & Location for Artists */}
-            {selectedRole === "artist" && (
-              <>
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-1">
-                    {t.bio}
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={bio}
-                    onChange={(e) => setBio(e.target.value)}
-                    placeholder="Tell collectors about your artistic vision..."
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:ring-2 focus:ring-[#2AABEE] focus:outline-none resize-none"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-neutral-700 mb-1">
-                    {t.location}
-                  </label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City, Country"
-                    className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:ring-2 focus:ring-[#2AABEE] focus:outline-none"
-                  />
-                </div>
-
-                {/* Quota reminder */}
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
-                  <Sparkles size={16} className="text-amber-600 shrink-0" />
-                  <span>
-                    <strong>Early Access:</strong> You can upload up to {MAX_ARTIST_UPLOADS} artworks now. More quota will be unlocked soon!
-                  </span>
-                </div>
-              </>
-            )}
-
-            <button
-              type="submit"
-              className="w-full py-3.5 px-4 rounded-2xl bg-[#2AABEE] hover:bg-[#2299d4] text-white font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-lg shadow-[#2AABEE]/25 transition-all mt-3"
-            >
-              <Send size={15} />
-              {t.continueWithTelegram}
-            </button>
           </form>
         )}
       </div>

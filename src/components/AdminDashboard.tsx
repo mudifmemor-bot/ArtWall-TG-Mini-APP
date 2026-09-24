@@ -16,10 +16,19 @@ import {
   Search,
   Download,
   Filter,
+  RefreshCw,
+  Phone,
+  MapPin,
+  Calendar,
+  ExternalLink,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Artwork, Language, TelegramUser } from "../types";
 import { translations } from "../translations";
 import { GoogleWorkspacePanel } from "./GoogleWorkspacePanel";
+import { fetchRegisteredUsers } from "../services/api";
+import { syncUsersToGoogleSheet, getStoredWorkspaceState } from "../services/googleWorkspace";
 
 interface Props {
   artworks: Artwork[];
@@ -44,6 +53,48 @@ export const AdminDashboard: React.FC<Props> = ({
 
   const [tableSearch, setTableSearch] = useState("");
   const [tableCategory, setTableCategory] = useState<string>("all");
+
+  // User directory state
+  const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState<"all" | "artist" | "buyer" | "admin">("all");
+  const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
+  const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  const handleManualRefreshUsers = async () => {
+    setIsRefreshingUsers(true);
+    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+    try {
+      const freshUsers = await fetchRegisteredUsers();
+      if (freshUsers && onUpdateUsers) {
+        onUpdateUsers(freshUsers);
+      }
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
+    } catch (err) {
+      console.warn("Could not refresh users:", err);
+      window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("error");
+    } finally {
+      setTimeout(() => setIsRefreshingUsers(false), 500);
+    }
+  };
+
+  const handleCopyPhone = (phone: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard?.writeText(phone);
+    setCopiedPhone(phone);
+    window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("success");
+    setTimeout(() => setCopiedPhone(null), 2000);
+  };
+
+  // Filtered users for directory
+  const filteredUsers = users.filter((u) => {
+    const fullName = `${u.first_name} ${u.last_name || ""}`.toLowerCase();
+    const username = (u.username || "").toLowerCase();
+    const phone = (u.phone_number || "").toLowerCase();
+    const q = userSearch.toLowerCase();
+    const matchesQuery = fullName.includes(q) || username.includes(q) || phone.includes(q);
+    const matchesRole = userRoleFilter === "all" || u.role === userRoleFilter;
+    return matchesQuery && matchesRole;
+  });
 
   // Calculate real-time stats
   const totalArtists = users.filter((u) => u.role === "artist").length || 3;
@@ -94,10 +145,10 @@ export const AdminDashboard: React.FC<Props> = ({
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden animate-in fade-in duration-300">
       {/* Header Banner */}
-      <div className="bg-[#1A1A1A] text-white rounded-3xl p-6 sm:p-8 shadow-xl mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 border border-white/10">
-        <div>
+      <div className="bg-[#1A1A1A] text-white rounded-3xl p-5 sm:p-8 shadow-xl mb-6 sm:mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 border border-white/10">
+        <div className="min-w-0 max-w-full">
           <div className="flex items-center gap-2 mb-1.5 flex-wrap">
             <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase tracking-wider flex items-center gap-1">
               <ShieldCheck size={12} /> Admin Mode
@@ -114,14 +165,14 @@ export const AdminDashboard: React.FC<Props> = ({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/10 text-xs font-mono">
-          <div className="text-right">
+        <div className="flex items-center gap-3 bg-white/5 p-3.5 rounded-2xl border border-white/10 text-xs font-mono max-w-full overflow-hidden self-stretch sm:self-auto">
+          <div className="text-left sm:text-right min-w-0 flex-1">
             <span className="text-neutral-400 block text-[10px]">Active Session</span>
-            <span className="text-white font-bold">
+            <span className="text-white font-bold block truncate">
               {currentUser?.first_name} (@{currentUser?.username || "admin"})
             </span>
           </div>
-          <div className="w-9 h-9 rounded-xl bg-[#2AABEE] text-white flex items-center justify-center font-bold">
+          <div className="w-9 h-9 rounded-xl bg-[#2AABEE] text-white flex items-center justify-center font-bold shrink-0">
             <Send size={16} />
           </div>
         </div>
@@ -314,8 +365,8 @@ export const AdminDashboard: React.FC<Props> = ({
           </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
+        <div className="w-full max-w-full overflow-x-auto no-scrollbar touch-pan-x">
+          <table className="w-full min-w-[580px] text-left text-xs">
             <thead>
               <tr className="border-b border-neutral-200 text-neutral-400 uppercase tracking-wider text-[10px]">
                 <th className="pb-3 font-bold">Artwork</th>
@@ -400,65 +451,186 @@ export const AdminDashboard: React.FC<Props> = ({
 
       {/* Connected Telegram Users Directory */}
       <div className="bg-white rounded-3xl p-6 sm:p-7 border border-[#E8E6E1] shadow-xs">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5 pb-4 border-b border-neutral-100">
           <div>
-            <h2 className="font-serif-custom text-xl font-light italic text-[#1A1A1A]">
-              {t.userDirectory}
-            </h2>
-            <p className="text-xs text-neutral-500 font-light">
-              Telegram authenticated community members and creators.
-            </p>
-          </div>
-          <span className="text-xs text-neutral-400 font-mono">
-            {users.length} connected
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-          {users.map((u) => (
-            <div
-              key={u.id}
-              onClick={() => {
-                if (onViewProfile) {
-                  onViewProfile(u);
-                  window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
-                }
-              }}
-              className={`p-3.5 rounded-2xl bg-neutral-50 border border-neutral-200/80 flex items-center justify-between transition-all ${
-                onViewProfile ? "cursor-pointer hover:bg-neutral-100 hover:border-neutral-300 shadow-2xs" : ""
-              }`}
-              title="View User Profile"
-            >
-              <div className="flex items-center gap-2.5 min-w-0">
-                <img
-                  src={u.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"}
-                  alt={u.first_name}
-                  className="w-10 h-10 rounded-xl object-cover ring-1 ring-black/10 shrink-0"
-                />
-                <div className="min-w-0">
-                  <span className="font-bold text-xs text-neutral-900 block truncate">
-                    {u.first_name} {u.last_name || ""}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#2AABEE] block truncate">
-                    @{u.username || "tg_user"}
-                  </span>
-                </div>
-              </div>
-
-              <span
-                className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  u.role === "artist"
-                    ? "bg-purple-100 text-purple-700"
-                    : u.role === "admin"
-                    ? "bg-black text-white"
-                    : "bg-blue-100 text-blue-700"
-                }`}
-              >
-                {u.role}
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <h2 className="font-serif-custom text-xl font-light italic text-[#1A1A1A]">
+                {t.userDirectory}
+              </h2>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Cloud Synced
               </span>
             </div>
-          ))}
+            <p className="text-xs text-neutral-500 font-light">
+              Real-time platform registrations with Telegram verified phone numbers, roles, and profiles.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleManualRefreshUsers}
+              disabled={isRefreshingUsers}
+              className="min-h-[40px] px-3.5 py-2 rounded-xl bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+              title="Poll latest users from server"
+            >
+              <RefreshCw size={14} className={isRefreshingUsers ? "animate-spin text-[#6B7B62]" : ""} />
+              <span>{isRefreshingUsers ? "Syncing..." : "Refresh Live Users"}</span>
+            </button>
+            <span className="text-xs text-neutral-500 font-mono bg-neutral-100 px-3 py-2 rounded-xl">
+              {filteredUsers.length} / {users.length}
+            </span>
+          </div>
         </div>
+
+        {/* Filter and Search Bar */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mb-5">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
+            {(
+              [
+                { id: "all", label: `All (${users.length})` },
+                { id: "artist", label: `Artists (${users.filter((u) => u.role === "artist").length})` },
+                { id: "buyer", label: `Buyers (${users.filter((u) => u.role === "buyer").length})` },
+                { id: "admin", label: `Admin (${users.filter((u) => u.role === "admin").length})` },
+              ] as const
+            ).map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setUserRoleFilter(tab.id)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
+                  userRoleFilter === tab.id
+                    ? "bg-[#1A1A1A] text-white shadow-xs"
+                    : "bg-neutral-100 hover:bg-neutral-200 text-neutral-600"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          <div className="relative flex items-center flex-1 sm:max-w-xs">
+            <Search size={15} className="absolute left-3 text-neutral-400 pointer-events-none" />
+            <input
+              type="text"
+              value={userSearch}
+              onChange={(e) => setUserSearch(e.target.value)}
+              placeholder="Search name, username, phone..."
+              className="w-full min-h-[40px] pl-9 pr-3 py-2 rounded-xl bg-neutral-100 border border-transparent focus:border-neutral-300 text-xs focus:outline-none"
+            />
+          </div>
+        </div>
+
+        {/* User Cards Grid */}
+        {filteredUsers.length === 0 ? (
+          <div className="py-12 text-center text-neutral-400 text-xs bg-neutral-50 rounded-2xl border border-dashed border-neutral-200">
+            No users found matching your search.
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+            {filteredUsers.map((u) => (
+              <div
+                key={u.id}
+                onClick={() => {
+                  if (onViewProfile) {
+                    onViewProfile(u);
+                    window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
+                  }
+                }}
+                className={`p-4 rounded-2xl bg-neutral-50/90 border border-neutral-200/90 hover:border-neutral-300 hover:bg-white flex flex-col justify-between transition-all group shadow-2xs ${
+                  onViewProfile ? "cursor-pointer" : ""
+                }`}
+              >
+                {/* User Top: Avatar, Name, Handle, Role */}
+                <div className="flex items-start justify-between gap-3 mb-2.5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <img
+                      src={
+                        u.photo_url ||
+                        "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"
+                      }
+                      alt={u.first_name}
+                      className="w-12 h-12 rounded-xl object-cover ring-1 ring-black/10 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-bold text-sm text-neutral-900 block truncate">
+                          {u.first_name} {u.last_name || ""}
+                        </span>
+                      </div>
+                      <a
+                        href={u.username ? `https://t.me/${u.username}` : undefined}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[11px] font-mono text-[#2AABEE] hover:underline flex items-center gap-1 truncate"
+                      >
+                        <Send size={10} />
+                        @{u.username || `tg_${u.id}`}
+                      </a>
+                    </div>
+                  </div>
+
+                  <span
+                    className={`text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shrink-0 ${
+                      u.role === "artist"
+                        ? "bg-purple-100 text-purple-700 border border-purple-200"
+                        : u.role === "admin"
+                        ? "bg-black text-white"
+                        : "bg-blue-100 text-blue-700 border border-blue-200"
+                    }`}
+                  >
+                    {u.role}
+                  </span>
+                </div>
+
+                {/* Contact Phone & Telegram Verified Badge */}
+                <div className="space-y-1.5 mt-1 pt-2 border-t border-neutral-200/60">
+                  {u.phone_number ? (
+                    <div className="flex items-center justify-between text-xs bg-emerald-50 text-emerald-800 px-2.5 py-1.5 rounded-lg border border-emerald-200/60">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Phone size={12} className="text-emerald-600 shrink-0" />
+                        <span className="font-mono font-medium truncate">{u.phone_number}</span>
+                      </div>
+                      <button
+                        onClick={(e) => handleCopyPhone(u.phone_number!, e)}
+                        className="p-1 hover:bg-emerald-100 rounded text-emerald-700 transition-colors shrink-0"
+                        title="Copy phone number"
+                      >
+                        {copiedPhone === u.phone_number ? <Check size={12} /> : <Copy size={12} />}
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-neutral-400 italic px-1 flex items-center gap-1">
+                      <Phone size={10} /> Contact not shared
+                    </div>
+                  )}
+
+                  {/* Metadata: Location & Joined Date */}
+                  <div className="flex items-center justify-between text-[10px] text-neutral-500 pt-0.5">
+                    {u.location ? (
+                      <span className="flex items-center gap-1 truncate max-w-[150px]">
+                        <MapPin size={10} className="text-neutral-400 shrink-0" />
+                        <span className="truncate">{u.location}</span>
+                      </span>
+                    ) : (
+                      <span className="text-neutral-400">Tashkent</span>
+                    )}
+
+                    {u.createdAt && (
+                      <span className="flex items-center gap-1 font-mono text-[9px] text-neutral-400 shrink-0">
+                        <Calendar size={10} />
+                        {new Date(u.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

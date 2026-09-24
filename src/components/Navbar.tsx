@@ -73,25 +73,25 @@ export const Navbar: React.FC<Props> = ({
 
   return (
     <>
-      <header className="sticky top-0 z-40 w-full bg-[#F9F8F6]/95 backdrop-blur-md border-b border-[#E8E6E1] transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-3 sm:gap-4">
+      <header className="sticky top-0 z-40 w-full max-w-full overflow-x-clip bg-[#F9F8F6]/95 backdrop-blur-md border-b border-[#E8E6E1] transition-all">
+      <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-1.5 sm:gap-4">
         {/* =========================================================================
             BRAND / LOGO - Role Specific Window Identity
            ========================================================================= */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink">
           {currentRole === "buyer" && (
             <button
               onClick={() => onSelectTab("gallery")}
-              className="flex items-center gap-2.5 text-left group cursor-pointer"
+              className="flex items-center gap-2 text-left group cursor-pointer min-w-0"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center font-serif-custom italic font-bold text-lg shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#1A1A1A] text-white flex items-center justify-center font-serif-custom italic font-bold text-base sm:text-lg shadow-sm group-hover:scale-105 transition-transform shrink-0">
                 A
               </div>
-              <div>
-                <span className="font-serif-custom text-lg sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none">
+              <div className="min-w-0">
+                <span className="font-serif-custom text-base sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none truncate max-w-[130px] sm:max-w-none">
                   {t.appTitle}
                 </span>
-                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block">
+                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block truncate">
                   Collector Gallery & AR Staging
                 </span>
               </div>
@@ -101,21 +101,21 @@ export const Navbar: React.FC<Props> = ({
           {currentRole === "artist" && (
             <button
               onClick={() => onSelectTab("studio")}
-              className="flex items-center gap-2.5 text-left group cursor-pointer"
+              className="flex items-center gap-2 text-left group cursor-pointer min-w-0"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#6B7B62] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#6B7B62] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                 <Palette size={18} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-serif-custom text-lg sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none">
+                  <span className="font-serif-custom text-base sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none truncate max-w-[120px] sm:max-w-none">
                     Art Wall Studio
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#6B7B62]/15 text-[#6B7B62] text-[9px] font-bold uppercase tracking-wider">
-                    Artist Window
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#6B7B62]/15 text-[#6B7B62] text-[9px] font-bold uppercase tracking-wider hidden xs:inline shrink-0">
+                    Artist
                   </span>
                 </div>
-                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block">
+                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block truncate">
                   {user ? `${user.first_name} ${user.last_name || ""}`.trim() : "Artist Portal"} • My Artworks & Analytics
                 </span>
               </div>
@@ -125,21 +125,21 @@ export const Navbar: React.FC<Props> = ({
           {currentRole === "admin" && (
             <button
               onClick={() => onSelectTab("admin")}
-              className="flex items-center gap-2.5 text-left group cursor-pointer"
+              className="flex items-center gap-2 text-left group cursor-pointer min-w-0"
             >
-              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#2D3748] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-[#2D3748] text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
                 <ShieldCheck size={18} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <span className="font-serif-custom text-lg sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none">
+                  <span className="font-serif-custom text-base sm:text-xl font-medium tracking-tight text-[#1A1A1A] block leading-none truncate max-w-[120px] sm:max-w-none">
                     Art Wall HQ
                   </span>
-                  <span className="px-1.5 py-0.5 rounded-md bg-[#2D3748]/15 text-[#2D3748] text-[9px] font-bold uppercase tracking-wider">
-                    Admin Window
+                  <span className="px-1.5 py-0.5 rounded-md bg-[#2D3748]/15 text-[#2D3748] text-[9px] font-bold uppercase tracking-wider hidden xs:inline shrink-0">
+                    Admin
                   </span>
                 </div>
-                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block">
+                <span className="text-[10px] text-neutral-500 font-medium tracking-wide hidden sm:block truncate">
                   Founder Analytics & Platform Operations
                 </span>
               </div>
@@ -467,23 +467,19 @@ export const Navbar: React.FC<Props> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        window.Telegram?.WebApp?.HapticFeedback?.notificationOccurred?.("warning");
-                        alert(
-                          lang === "ru"
-                            ? `Панель администратора доступна только Telegram-пользователю @${ADMIN_TELEGRAM_USERNAME}. Все остальные аккаунты могут быть только покупателями или художниками.`
-                            : `Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be Buyer or Artist.`
-                        );
+                        setIsDropdownOpen(false);
+                        onOpenAuth();
                       }}
-                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-neutral-400 hover:bg-amber-50/50 transition-colors cursor-pointer group"
+                      className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-neutral-600 hover:bg-amber-50 hover:text-amber-900 transition-colors cursor-pointer group"
                     >
                       <div className="flex items-center gap-2">
-                        <Lock size={13} className="text-amber-700" />
-                        <span className="text-neutral-500 group-hover:text-amber-900">
-                          {lang === "ru" ? "Администратор (HQ)" : "Admin HQ"}
+                        <ShieldCheck size={13} className="text-amber-600" />
+                        <span className="text-neutral-700 font-bold group-hover:text-amber-900">
+                          {lang === "ru" ? "Вход для @muxammadsiddiq_23" : "Sign in as @muxammadsiddiq_23"}
                         </span>
                       </div>
-                      <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300/60 font-mono px-1.5 py-0.5 rounded font-bold">
-                        @{ADMIN_TELEGRAM_USERNAME}
+                      <span className="text-[9px] bg-amber-100 text-amber-900 border border-amber-300 font-mono px-1.5 py-0.5 rounded font-bold">
+                        Admin
                       </span>
                     </button>
                   )}
@@ -560,7 +556,7 @@ export const Navbar: React.FC<Props> = ({
     {currentTab !== "visualizer" && (
       <nav
         aria-label="Mobile navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#F9F8F6]/95 backdrop-blur-xl border-t border-[#E8E6E1] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 w-full max-w-full overflow-x-clip bg-[#F9F8F6]/95 backdrop-blur-xl border-t border-[#E8E6E1] shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-1 sm:px-2 py-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] flex justify-around items-center"
       >
         {/* Buyer Mobile Tabs */}
         {currentRole === "buyer" && (
@@ -570,20 +566,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("gallery");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "gallery"
                   ? "text-[#1A1A1A] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "gallery" ? "bg-[#1A1A1A] text-white" : ""
                 }`}
               >
                 <Layers size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 {t.galleryTab}
               </span>
             </button>
@@ -593,20 +589,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("visualizer");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "visualizer"
                   ? "text-[#1A1A1A] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "visualizer" ? "bg-[#1A1A1A] text-white" : ""
                 }`}
               >
                 <Box size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 {t.visualizerTab}
               </span>
             </button>
@@ -616,14 +612,14 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("basket");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all relative ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all relative ${
                 currentTab === "basket"
                   ? "text-[#1A1A1A] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all relative ${
+                className={`p-1 rounded-xl transition-all relative shrink-0 ${
                   currentTab === "basket" ? "bg-[#1A1A1A] text-white" : ""
                 }`}
               >
@@ -634,7 +630,7 @@ export const Navbar: React.FC<Props> = ({
                   </span>
                 )}
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 {t.basketTab}
               </span>
             </button>
@@ -644,20 +640,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("profile");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "profile"
                   ? "text-[#1A1A1A] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "profile" ? "bg-[#1A1A1A] text-white" : ""
                 }`}
               >
                 <User size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 {t.profileTab}
               </span>
             </button>
@@ -672,20 +668,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("studio");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "studio"
                   ? "text-[#6B7B62] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "studio" ? "bg-[#6B7B62] text-white" : ""
                 }`}
               >
                 <Palette size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 My Studio
               </span>
             </button>
@@ -695,20 +691,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("visualizer");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "visualizer"
                   ? "text-[#6B7B62] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "visualizer" ? "bg-[#6B7B62] text-white" : ""
                 }`}
               >
                 <Box size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 Stage Art
               </span>
             </button>
@@ -718,20 +714,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("profile");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "profile"
                   ? "text-[#6B7B62] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "profile" ? "bg-[#6B7B62] text-white" : ""
                 }`}
               >
                 <User size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 {t.profileTab}
               </span>
             </button>
@@ -746,20 +742,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("admin");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "admin"
                   ? "text-[#2D3748] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "admin" ? "bg-[#2D3748] text-white" : ""
                 }`}
               >
                 <BarChart3 size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 HQ Dashboard
               </span>
             </button>
@@ -769,20 +765,20 @@ export const Navbar: React.FC<Props> = ({
                 onSelectTab("profile");
                 window.Telegram?.WebApp?.HapticFeedback?.impactOccurred?.("light");
               }}
-              className={`flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
+              className={`min-w-0 flex-1 flex flex-col items-center justify-center min-h-[48px] py-1 rounded-2xl transition-all ${
                 currentTab === "profile"
                   ? "text-[#2D3748] font-bold"
                   : "text-neutral-500 hover:text-neutral-800"
               }`}
             >
               <div
-                className={`p-1 rounded-xl transition-all ${
+                className={`p-1 rounded-xl transition-all shrink-0 ${
                   currentTab === "profile" ? "bg-[#2D3748] text-white" : ""
                 }`}
               >
                 <User size={18} />
               </div>
-              <span className="text-[10px] uppercase tracking-wider whitespace-nowrap mt-0.5">
+              <span className="text-[10px] uppercase tracking-wider truncate max-w-full px-1 mt-0.5 text-center block">
                 Admin Profile
               </span>
             </button>

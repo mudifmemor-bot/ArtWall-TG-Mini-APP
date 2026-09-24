@@ -1,7 +1,15 @@
 import { TelegramUser, GoogleDriveFile, GoogleWorkspaceState } from "../types";
+import { initializeApp, getApps } from "firebase/app";
+import { getAuth, signInWithPopup, GoogleAuthProvider } from "firebase/auth";
+import firebaseConfig from "../../firebase-applet-config.json";
+
+// Initialize Firebase App
+const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const firebaseAuth = getAuth(firebaseApp);
 
 export const GOOGLE_CLIENT_ID =
-  (import.meta.env.VITE_GOOGLE_CLIENT_ID as string) ||
+  ((import.meta as any).env?.VITE_GOOGLE_CLIENT_ID as string) ||
+  firebaseConfig.oAuthClientId ||
   "403275370796-bphaihaics3di457f97ilg0mepb5c00n.apps.googleusercontent.com";
 
 export const GOOGLE_SCOPES =
@@ -65,9 +73,48 @@ export function getStoredWorkspaceState(): GoogleWorkspaceState {
 }
 
 /**
- * Requests Google OAuth Access Token via Google Identity Services client popup
+ * Requests Google OAuth Access Token via Firebase Auth (Preferred) with fallback to Google Identity Services
  */
-export function requestGoogleAccessToken(prompt?: "consent" | "select_account"): Promise<string> {
+export async function requestGoogleAccessToken(prompt?: "consent" | "select_account"): Promise<string> {
+  // Try Firebase Auth first
+  try {
+    const provider = new GoogleAuthProvider();
+    provider.addScope("https://www.googleapis.com/auth/drive.file");
+    provider.addScope("https://www.googleapis.com/auth/spreadsheets");
+    provider.addScope("https://www.googleapis.com/auth/userinfo.profile");
+    provider.addScope("https://www.googleapis.com/auth/userinfo.email");
+
+    if (prompt === "consent" || prompt === "select_account") {
+      provider.setCustomParameters({ prompt: prompt });
+    }
+
+    const result = await signInWithPopup(firebaseAuth, provider);
+    const credential = GoogleAuthProvider.credentialFromResult(result);
+
+    if (credential?.accessToken) {
+      const token = credential.accessToken;
+      const expiresIn = 3500;
+      const expiresAt = Date.now() + expiresIn * 1000;
+
+      const tokenData: StoredTokenData = {
+        token,
+        expiresAt,
+        email: result.user.email || undefined,
+        name: result.user.displayName || undefined,
+        picture: result.user.photoURL || undefined,
+      };
+      localStorage.setItem(TOKEN_KEY, JSON.stringify(tokenData));
+      return token;
+    }
+  } catch (fbErr: any) {
+    console.warn("Firebase Auth signInWithPopup fallback to GIS:", fbErr);
+    // If user cancelled, don't fallback to avoid double popups
+    if (fbErr.code === "auth/popup-closed-by-user" || fbErr.code === "auth/cancelled-popup-request") {
+      throw new Error("Sign in cancelled by user.");
+    }
+  }
+
+  // Fallback to Google Identity Services
   return new Promise((resolve, reject) => {
     if (typeof window === "undefined" || !window.google?.accounts?.oauth2) {
       return reject(
@@ -220,6 +267,7 @@ export async function syncUsersToGoogleSheet(
     "First Name",
     "Last Name",
     "Telegram Username",
+    "Phone Number",
     "Platform Role",
     "Location",
     "Bio / Description",
@@ -233,6 +281,7 @@ export async function syncUsersToGoogleSheet(
     u.first_name || "",
     u.last_name || "",
     u.username ? `@${u.username}` : "",
+    u.phone_number || "",
     (u.role || "buyer").toUpperCase(),
     u.location || "Tashkent, Uzbekistan",
     u.bio || "",
@@ -243,7 +292,7 @@ export async function syncUsersToGoogleSheet(
   const allRows = [headerRow, ...dataRows];
 
   // Overwrite the Users tab
-  const range = `Users!A1:I${allRows.length}`;
+  const range = `Users!A1:J${allRows.length}`;
   const updateRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
     {
@@ -279,7 +328,7 @@ export async function syncUsersToGoogleSheet(
  */
 export async function fetchUsersFromGoogleSheet(spreadsheetId: string): Promise<TelegramUser[]> {
   const token = await ensureGoogleToken();
-  const range = "Users!A2:I1000";
+  const range = "Users!A2:J1000";
   const res = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}`, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -297,10 +346,11 @@ export async function fetchUsersFromGoogleSheet(spreadsheetId: string): Promise<
     first_name: row[1] || "User",
     last_name: row[2] || "",
     username: (row[3] || "").replace(/^@/, "").trim(),
-    role: (row[4] || "buyer").toLowerCase() as any,
-    location: row[5] || "",
-    bio: row[6] || "",
-    createdAt: row[7] || new Date().toISOString(),
+    phone_number: row[4] || undefined,
+    role: (row[5] || "buyer").toLowerCase() as any,
+    location: row[6] || "",
+    bio: row[7] || "",
+    createdAt: row[8] || new Date().toISOString(),
   }));
 }
 
@@ -427,7 +477,48 @@ export async function uploadFileToDrive(
   }
 
   const uploadedFile: GoogleDriveFile = await uploadRes.json();
+
+  // Try to set permissions to anyone with link as reader so artwork image can be loaded anywhere
+  try {
+    await fetch(`https://www.googleapis.com/drive/v3/files/${uploadedFile.id}/permissions`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        role: "reader",
+        type: "anyone",
+      }),
+    });
+  } catch (permErr) {
+    console.warn("Could not set public permission on Drive file:", permErr);
+  }
+
+  // Ensure thumbnailLink or direct image link is present
+  if (!uploadedFile.thumbnailLink && uploadedFile.id) {
+    uploadedFile.thumbnailLink = `https://drive.google.com/thumbnail?id=${uploadedFile.id}&sz=w1200`;
+  }
+
   return uploadedFile;
+}
+
+/**
+ * Background auto-sync to Google Sheet if admin has connected Google Workspace
+ */
+export async function autoSyncUsersToGoogleSheetIfConnected(users: TelegramUser[]): Promise<boolean> {
+  try {
+    const token = getStoredGoogleToken();
+    if (!token) return false;
+    const state = getStoredWorkspaceState();
+    if (!state.isConnected) return false;
+
+    await syncUsersToGoogleSheet(users, state.spreadsheetId);
+    return true;
+  } catch (err) {
+    console.warn("Auto-sync to Google Sheets failed:", err);
+    return false;
+  }
 }
 
 /**

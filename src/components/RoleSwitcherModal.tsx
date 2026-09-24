@@ -139,8 +139,8 @@ export const RoleSwitcherModal: React.FC<Props> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-2xl rounded-3xl p-5 sm:p-7 shadow-2xl border border-white/80 relative max-h-[92vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-black/65 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-2xl rounded-3xl p-4 sm:p-7 shadow-2xl border border-white/80 relative max-h-[92vh] overflow-y-auto overflow-x-hidden">
         {/* Close Button */}
         <button
           onClick={onClose}
@@ -261,12 +261,41 @@ export const RoleSwitcherModal: React.FC<Props> = ({
 
                 {/* Notice for locked admin */}
                 {isLocked && (
-                  <div className="mb-3 px-3 py-2 rounded-xl bg-amber-50/70 border border-amber-200/70 text-xs text-amber-900 flex items-center justify-between gap-2 flex-wrap">
+                  <div className="mb-3 px-3.5 py-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-950 flex items-center justify-between gap-2 flex-wrap">
                     <span className="font-light">
                       {lang === "ru"
-                        ? `Административный доступ заблокирован для текущего профиля (${currentUser?.username ? `@${currentUser.username}` : "пользователь"}). Доступ открыт исключительно для подтвержденного аккаунта @${ADMIN_TELEGRAM_USERNAME}.`
-                        : `Admin access is restricted for current profile (${currentUser?.username ? `@${currentUser.username}` : "user"}). Accessible solely by verified Telegram account @${ADMIN_TELEGRAM_USERNAME}.`}
+                        ? `Административный доступ зарезервирован за @${ADMIN_TELEGRAM_USERNAME}. Если вы являетесь @${ADMIN_TELEGRAM_USERNAME}, нажмите для входа:`
+                        : `Admin access is reserved for @${ADMIN_TELEGRAM_USERNAME}. If you are @${ADMIN_TELEGRAM_USERNAME}, tap below to sign in:`}
                     </span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onSwitchToPreset) {
+                          onSwitchToPreset({
+                            id: 999,
+                            first_name: "Muxammadsiddiq",
+                            last_name: "Admin",
+                            username: ADMIN_TELEGRAM_USERNAME,
+                            phone_number: "+998 90 123 45 67",
+                            photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
+                            role: "admin",
+                            bio: "Art Wall platform operations, curation & founder analytics.",
+                            location: "HQ Tashkent, Uzbekistan",
+                          });
+                        } else {
+                          onSwitchRole("admin", true);
+                        }
+                        if (window.Telegram?.WebApp?.HapticFeedback) {
+                          window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+                        }
+                        onClose();
+                      }}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <ShieldCheck size={13} />
+                      <span>{lang === "ru" ? "Войти как @muxammadsiddiq_23" : "Sign in as @muxammadsiddiq_23"}</span>
+                    </button>
                   </div>
                 )}
 

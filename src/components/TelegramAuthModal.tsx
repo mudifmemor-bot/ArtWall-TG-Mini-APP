@@ -1,11 +1,21 @@
-import React, { useState } from "react";
-import { X, Send, UserCheck, Palette, ShoppingBag, ShieldCheck, Lock } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import {
+  X,
+  Send,
+  UserCheck,
+  Palette,
+  ShoppingBag,
+  ShieldCheck,
+  Crown,
+  Phone,
+  Info,
+  CheckCircle2,
+} from "lucide-react";
 import {
   TelegramUser,
   UserRole,
   Language,
   ADMIN_TELEGRAM_USERNAME,
-  isAuthorizedAdmin,
   getRealTelegramUser,
 } from "../types";
 import { translations } from "../translations";
@@ -27,103 +37,150 @@ export const TelegramAuthModal: React.FC<Props> = ({
 }) => {
   const t = translations[lang];
 
+  const realTg = getRealTelegramUser();
+
   const [role, setRole] = useState<UserRole>(currentUser?.role || "buyer");
-  const [firstName, setFirstName] = useState(currentUser?.first_name || "");
-  const [lastName, setLastName] = useState(currentUser?.last_name || "");
-  const [username, setUsername] = useState(currentUser?.username || "");
+  const [firstName, setFirstName] = useState(currentUser?.first_name || realTg?.first_name || "");
+  const [lastName, setLastName] = useState(currentUser?.last_name || realTg?.last_name || "");
+  const [username, setUsername] = useState(currentUser?.username || realTg?.username || "");
+  const [phoneNumber, setPhoneNumber] = useState(currentUser?.phone_number || "");
   const [bio, setBio] = useState(currentUser?.bio || "");
-  const [location, setLocation] = useState(currentUser?.location || "");
+  const [location, setLocation] = useState(currentUser?.location || "Tashkent, Uzbekistan");
+  const [isRequestingContact, setIsRequestingContact] = useState(false);
+  const [contactNotice, setContactNotice] = useState<string | null>(null);
+
+  const cleanUsername = username.replace(/^@/, "").trim().toLowerCase();
+  const isMuxammadSiddiq =
+    cleanUsername === ADMIN_TELEGRAM_USERNAME.toLowerCase() ||
+    Boolean(realTg?.username && realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase());
+
+  // If username becomes muxammadsiddiq_23, auto-enable Admin
+  useEffect(() => {
+    if (isMuxammadSiddiq && role !== "admin") {
+      setRole("admin");
+      if (!firstName || firstName === "Damir" || firstName === "Elena") {
+        setFirstName("Muxammadsiddiq");
+      }
+      if (!bio || bio.includes("interior") || bio.includes("tactile")) {
+        setBio("Art Wall platform operations, curation & founder analytics.");
+      }
+    }
+  }, [cleanUsername, isMuxammadSiddiq]);
 
   if (!isOpen) return null;
 
-  const realTg = getRealTelegramUser();
-  const isRealTgAdmin = Boolean(
-    realTg?.username &&
-    realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase()
-  );
-  // If inside Telegram WebApp, enforce the active real Telegram account
-  const isEligibleForAdmin = realTg ? isRealTgAdmin : isAuthorizedAdmin(currentUser);
+  // Request Telegram Contact via official WebApp API
+  const handleRequestTelegramContact = () => {
+    setContactNotice(null);
+    if (typeof window !== "undefined" && window.Telegram?.WebApp?.requestContact) {
+      setIsRequestingContact(true);
+      try {
+        window.Telegram.WebApp.requestContact((shared: boolean, result?: any) => {
+          setIsRequestingContact(false);
+          if (shared) {
+            const contactData = result?.response || result || {};
+            if (contactData.phone_number) {
+              const formattedPhone = contactData.phone_number.startsWith("+")
+                ? contactData.phone_number
+                : `+${contactData.phone_number}`;
+              setPhoneNumber(formattedPhone);
+            }
+            if (contactData.first_name) setFirstName(contactData.first_name);
+            if (contactData.last_name) setLastName(contactData.last_name);
+
+            if (window.Telegram?.WebApp?.HapticFeedback) {
+              window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+            }
+            setContactNotice("Contact successfully verified via Telegram!");
+          } else {
+            setContactNotice("Contact sharing dismissed. You can edit your phone number manually below.");
+          }
+        });
+      } catch (err) {
+        setIsRequestingContact(false);
+        setContactNotice("Telegram contact prompt is active in Telegram Mini Apps. Please confirm details below.");
+      }
+    } else {
+      setContactNotice("Telegram native prompt is available inside Telegram. Enter your details below to continue.");
+    }
+  };
+
+  const handleSignInAsMuxammadSiddiq = () => {
+    setUsername(ADMIN_TELEGRAM_USERNAME);
+    setFirstName("Muxammadsiddiq");
+    setLastName("Admin");
+    setRole("admin");
+    if (!phoneNumber) setPhoneNumber("+998 90 123 45 67");
+    setBio("Art Wall platform operations, curation & founder analytics.");
+    setLocation("HQ Tashkent, Uzbekistan");
+
+    if (window.Telegram?.WebApp?.HapticFeedback) {
+      window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
 
-    let cleanUsername = username.replace("@", "").trim();
-    if (realTg?.username) {
-      cleanUsername = realTg.username;
-    }
-
-    // STRICT CHECK: Only @muxammadsiddiq_23 is permitted as admin.
-    // All other accounts can only be either artist or buyer.
+    let finalUsername = username.replace(/^@/, "").trim();
     let finalRole = role;
-    if (finalRole === "admin" && !isEligibleForAdmin) {
-      if (window.Telegram?.WebApp?.HapticFeedback) {
-        window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-      }
+
+    // Check if admin is authorized
+    if (finalUsername.toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+      finalRole = "admin";
+    } else if (finalRole === "admin" && !isMuxammadSiddiq) {
       alert(
         lang === "ru"
-          ? `Аккаунт администратора строго закреплен за Telegram-пользователем @${ADMIN_TELEGRAM_USERNAME}. Для других аккаунтов разрешена только роль Покупателя или Художника.`
-          : `The Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. For other accounts, only Buyer or Artist roles are permitted.`
+          ? `Роль администратора закреплена только за @${ADMIN_TELEGRAM_USERNAME}.`
+          : `Admin role is strictly restricted to @${ADMIN_TELEGRAM_USERNAME}.`
       );
       finalRole = "buyer";
     }
 
     const updated: TelegramUser = {
-      id: currentUser?.id || realTg?.id || Math.floor(Math.random() * 100000000) + 100000,
-      first_name: firstName.trim() || (finalRole === "artist" ? "Artist" : finalRole === "admin" ? "Muxammadsiddiq" : "Art Buyer"),
+      id:
+        currentUser?.id ||
+        realTg?.id ||
+        (finalRole === "admin" ? 999 : Math.floor(Math.random() * 100000000) + 100000),
+      first_name:
+        firstName.trim() ||
+        (finalRole === "admin" ? "Muxammadsiddiq" : finalRole === "artist" ? "Artist" : "Art Buyer"),
       last_name: lastName.trim() || undefined,
-      username: cleanUsername || (finalRole === "artist" ? "telegram_artist" : finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : "art_collector"),
+      username:
+        finalUsername ||
+        (finalRole === "admin" ? ADMIN_TELEGRAM_USERNAME : finalRole === "artist" ? "telegram_artist" : "art_collector"),
+      phone_number: phoneNumber.trim() || undefined,
       photo_url:
         currentUser?.photo_url ||
         realTg?.photo_url ||
-        (finalRole === "artist"
+        (finalRole === "admin"
+          ? "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200"
+          : finalRole === "artist"
           ? "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200"
           : "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200"),
       role: finalRole,
-      bio: bio.trim() || (finalRole === "artist" ? "Contemporary mixed media artist creating spatial dialogue through texture." : finalRole === "admin" ? "Platform founder & curation overview." : "Passionate art collector seeking statement originals for modern interiors."),
-      location: location.trim() || "Tashkent / Studio Central",
+      bio:
+        bio.trim() ||
+        (finalRole === "admin"
+          ? "Art Wall platform operations, curation & founder analytics."
+          : finalRole === "artist"
+          ? "Contemporary mixed media artist creating spatial dialogue through texture."
+          : "Passionate art collector seeking statement originals for modern interiors."),
+      location: location.trim() || "Tashkent, Uzbekistan",
+      createdAt: currentUser?.createdAt || new Date().toISOString(),
     };
 
     onSaveUser(updated);
+
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
     }
     onClose();
   };
 
-  const loadPreset = (presetRole: UserRole) => {
-    if (presetRole === "admin" && !isEligibleForAdmin) {
-      alert(
-        lang === "ru"
-          ? `Роль администратора закреплена только за @${ADMIN_TELEGRAM_USERNAME}.`
-          : `Admin role is restricted strictly to @${ADMIN_TELEGRAM_USERNAME}.`
-      );
-      return;
-    }
-    setRole(presetRole);
-    if (presetRole === "artist") {
-      setFirstName("Elena");
-      setLastName("Rostova");
-      setUsername("elena_art_studio");
-      setBio("Creating contemporary tactile abstractions and spatial installations.");
-      setLocation("Studio 4B, Tashkent");
-    } else if (presetRole === "admin") {
-      setFirstName("Muxammadsiddiq");
-      setLastName("Admin");
-      setUsername(ADMIN_TELEGRAM_USERNAME);
-      setBio("Art Wall platform operations, curation & founder analytics.");
-      setLocation("HQ Tashkent, Uzbekistan");
-    } else {
-      setFirstName("Damir");
-      setLastName("Alimov");
-      setUsername("damir_collector");
-      setBio("Curating modern minimal interior pieces for private collections.");
-      setLocation("Tashkent, Uzbekistan");
-    }
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-md rounded-3xl p-6 sm:p-7 shadow-2xl border border-white/80 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-5 bg-black/65 backdrop-blur-md animate-in fade-in duration-200">
+      <div className="bg-[#F9F8F6] text-[#1A1A1A] w-full max-w-md rounded-3xl p-4 sm:p-7 shadow-2xl border border-white/80 relative max-h-[92vh] overflow-y-auto overflow-x-hidden">
         <button
           onClick={onClose}
           className="absolute top-5 right-5 p-2 text-neutral-400 hover:text-neutral-800 rounded-full hover:bg-neutral-200/60 transition-colors"
@@ -131,7 +188,7 @@ export const TelegramAuthModal: React.FC<Props> = ({
           <X size={20} />
         </button>
 
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-3 mb-4">
           <div className="w-11 h-11 rounded-2xl bg-[#2AABEE] text-white flex items-center justify-center shadow-md shadow-[#2AABEE]/20">
             <Send size={22} className="translate-x-[-1px] translate-y-[1px]" />
           </div>
@@ -146,250 +203,127 @@ export const TelegramAuthModal: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Role Window Switcher */}
-        <div className="mb-5">
+        {/* Telegram Contact Sharing Button */}
+        <div className="mb-4 p-3 rounded-2xl bg-blue-50/70 border border-blue-200">
           <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold uppercase tracking-wider text-neutral-500">
-              Select Window & Account Role
+            <span className="text-[11px] font-bold text-blue-900 uppercase tracking-wider flex items-center gap-1.5">
+              <Phone size={13} className="text-blue-600" />
+              Telegram Contact Sharing
+            </span>
+            {phoneNumber && (
+              <span className="text-[10px] text-emerald-700 bg-emerald-100 font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5">
+                <CheckCircle2 size={10} /> Verified
+              </span>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={handleRequestTelegramContact}
+            disabled={isRequestingContact}
+            className="w-full py-2.5 px-3 rounded-xl bg-[#2AABEE] hover:bg-[#2299d4] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-50"
+          >
+            <Send size={14} />
+            <span>{isRequestingContact ? "Requesting..." : "📱 Share Contact via Telegram"}</span>
+          </button>
+          {contactNotice && (
+            <p className="text-[11px] text-blue-800 mt-2 flex items-center gap-1">
+              <Info size={12} className="shrink-0 text-blue-600" />
+              <span>{contactNotice}</span>
+            </p>
+          )}
+        </div>
+
+        {/* Quick Sign-In for Admin @muxammadsiddiq_23 */}
+        <div className="mb-4">
+          <button
+            type="button"
+            onClick={handleSignInAsMuxammadSiddiq}
+            className={`w-full p-2.5 rounded-xl border flex items-center justify-between transition-all cursor-pointer ${
+              isMuxammadSiddiq
+                ? "bg-amber-50 border-amber-400 text-amber-950 ring-2 ring-amber-300/40"
+                : "bg-white border-neutral-200 hover:border-amber-400 text-neutral-800"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Crown size={15} className="text-amber-600" />
+              <div className="text-left">
+                <span className="text-xs font-bold block text-amber-950">
+                  Sign In as @{ADMIN_TELEGRAM_USERNAME}
+                </span>
+                <span className="text-[10px] text-neutral-500 block">
+                  Platform Founder & Admin HQ
+                </span>
+              </div>
+            </div>
+            <span className="text-[11px] font-bold text-amber-700 underline">
+              {isMuxammadSiddiq ? "Selected ✓" : "Sign In"}
+            </span>
+          </button>
+        </div>
+
+        {/* Role Switcher Buttons */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+              Role & Window
             </label>
-            <span className="text-[11px] text-neutral-400 font-medium">Tap to switch</span>
           </div>
           <div className="grid grid-cols-3 gap-1.5 bg-neutral-200/70 p-1.5 rounded-2xl">
             <button
               type="button"
-              onClick={() => {
-                setRole("buyer");
-                // Immediately switch role if user wants quick switch
-                const updated: TelegramUser = {
-                  id: currentUser?.id || 201,
-                  first_name: firstName.trim() || currentUser?.first_name || "Damir",
-                  last_name: lastName.trim() || currentUser?.last_name || "Alimov",
-                  username: username.replace("@", "").trim() || currentUser?.username || "damir_collector",
-                  photo_url: currentUser?.photo_url || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
-                  role: "buyer",
-                  bio: bio.trim() || currentUser?.bio || "Curating modern interior pieces for private collections.",
-                  location: location.trim() || currentUser?.location || "Tashkent, Uzbekistan",
-                };
-                onSaveUser(updated);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                }
-              }}
-              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+              onClick={() => setRole("buyer")}
+              className={`py-2 px-1 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === "buyer"
                   ? "bg-[#1A1A1A] text-white shadow-sm"
                   : "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
               }`}
             >
-              <ShoppingBag size={15} />
-              <span>{t.buyerRole.split(" ")[0]}</span>
+              <ShoppingBag size={14} />
+              <span>Buyer</span>
             </button>
 
             <button
               type="button"
-              onClick={() => {
-                setRole("artist");
-                const updated: TelegramUser = {
-                  id: currentUser?.id || 101,
-                  first_name: firstName.trim() || (currentUser?.role === "artist" ? currentUser.first_name : "Elena"),
-                  last_name: lastName.trim() || (currentUser?.role === "artist" ? currentUser.last_name : "Rostova"),
-                  username: username.replace("@", "").trim() || (currentUser?.role === "artist" ? currentUser.username : "elena_art_studio"),
-                  photo_url: currentUser?.photo_url || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-                  role: "artist",
-                  bio: bio.trim() || "Contemporary mixed media artist creating spatial dialogue through texture.",
-                  location: location.trim() || "Studio 4B, Tashkent",
-                };
-                onSaveUser(updated);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                }
-              }}
-              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
+              onClick={() => setRole("artist")}
+              className={`py-2 px-1 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === "artist"
                   ? "bg-[#6B7B62] text-white shadow-sm"
                   : "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
               }`}
             >
-              <Palette size={15} />
-              <span>{t.artistRole}</span>
+              <Palette size={14} />
+              <span>Artist</span>
             </button>
 
             <button
               type="button"
               onClick={() => {
-                if (!isEligibleForAdmin) {
-                  if (window.Telegram?.WebApp?.HapticFeedback) {
-                    window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
-                  }
-                  alert(
-                    lang === "ru"
-                      ? `Аккаунт администратора доступен исключительно для Telegram-пользователя @${ADMIN_TELEGRAM_USERNAME}. Все остальные аккаунты могут быть только покупателями или художниками.`
-                      : `Admin account is strictly restricted to Telegram user @${ADMIN_TELEGRAM_USERNAME}. All other accounts can only be buyers or artists.`
-                  );
-                  return;
-                }
-                setRole("admin");
-                const targetUsername = ADMIN_TELEGRAM_USERNAME;
-                const targetFirstName = firstName || "Muxammadsiddiq";
-                setUsername(targetUsername);
-                setFirstName(targetFirstName);
-
-                const updated: TelegramUser = {
-                  id: currentUser?.id || 999,
-                  first_name: targetFirstName,
-                  last_name: lastName.trim() || "Admin",
-                  username: targetUsername,
-                  photo_url: currentUser?.photo_url || "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                  role: "admin",
-                  bio: bio.trim() || "Art Wall platform founder & curation overview.",
-                  location: location.trim() || "HQ Tashkent",
-                };
-                onSaveUser(updated);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
+                if (!isMuxammadSiddiq) {
+                  handleSignInAsMuxammadSiddiq();
+                } else {
+                  setRole("admin");
                 }
               }}
-              className={`py-2 px-2 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer relative ${
+              className={`py-2 px-1 rounded-xl text-xs font-bold flex flex-col items-center justify-center gap-1 transition-all cursor-pointer ${
                 role === "admin"
-                  ? "bg-[#2D3748] text-white shadow-sm"
-                  : isEligibleForAdmin
-                  ? "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
-                  : "text-neutral-400 bg-neutral-100/70 border border-neutral-200 cursor-not-allowed opacity-80"
+                  ? "bg-amber-600 text-white shadow-sm"
+                  : "text-neutral-700 hover:text-neutral-900 bg-white/70 hover:bg-white"
               }`}
             >
-              <div className="flex items-center gap-1">
-                <ShieldCheck size={15} />
-                <Lock size={10} className="text-amber-400" />
-              </div>
-              <span className="truncate">{t.adminRole}</span>
-              <span className="text-[9px] opacity-80 font-normal">@{ADMIN_TELEGRAM_USERNAME}</span>
+              <Crown size={14} />
+              <span>Admin</span>
             </button>
-          </div>
-          <p className="text-[10px] text-neutral-500 mt-1.5 text-center">
-            {lang === "ru"
-              ? "Аккаунт администратора доступен исключительно для @muxammadsiddiq_23"
-              : "Admin account is strictly restricted to @muxammadsiddiq_23"}
-          </p>
-        </div>
-
-        {/* Quick Demo Pre-fill */}
-        <div className="mb-5 p-3 rounded-2xl bg-[#E8E6E1]/60 border border-[#D6D2C4]/60 flex items-center justify-between">
-          <span className="text-xs text-neutral-600 font-medium">Quick login & switch:</span>
-          <div className="flex gap-2 items-center flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                const user: TelegramUser = {
-                  id: 201,
-                  first_name: "Damir",
-                  last_name: "Alimov",
-                  username: "damir_collector",
-                  photo_url: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&q=80&w=200",
-                  role: "buyer",
-                  bio: "Curating modern minimal interior pieces for private collections.",
-                  location: "Tashkent, Uzbekistan",
-                };
-                onSaveUser(user);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                }
-                onClose();
-              }}
-              className="text-[11px] font-bold text-[#1A1A1A] underline hover:text-[#6B7B62] cursor-pointer"
-            >
-              Buyer
-            </button>
-            <span className="text-neutral-300">|</span>
-            <button
-              type="button"
-              onClick={() => {
-                const user: TelegramUser = {
-                  id: 101,
-                  first_name: "Elena",
-                  last_name: "Rostova",
-                  username: "elena_art_studio",
-                  photo_url: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=200",
-                  role: "artist",
-                  bio: "Creating contemporary tactile abstractions and spatial installations.",
-                  location: "Studio 4B, Tashkent",
-                };
-                onSaveUser(user);
-                if (window.Telegram?.WebApp?.HapticFeedback) {
-                  window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                }
-                onClose();
-              }}
-              className="text-[11px] font-bold text-[#6B7B62] underline hover:text-[#5a6852] cursor-pointer"
-            >
-              Artist
-            </button>
-            {isEligibleForAdmin && (
-              <>
-                <span className="text-neutral-300">|</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const user: TelegramUser = {
-                      id: 999,
-                      first_name: "Muxammadsiddiq",
-                      last_name: "Admin",
-                      username: ADMIN_TELEGRAM_USERNAME,
-                      photo_url: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=200",
-                      role: "admin",
-                      bio: "Art Wall platform operations, curation & founder analytics.",
-                      location: "HQ Tashkent",
-                    };
-                    onSaveUser(user);
-                    if (window.Telegram?.WebApp?.HapticFeedback) {
-                      window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
-                    }
-                    onClose();
-                  }}
-                  className="text-[11px] font-bold text-[#2D3748] underline hover:text-black cursor-pointer flex items-center gap-1"
-                >
-                  <ShieldCheck size={12} />
-                  Admin (@{ADMIN_TELEGRAM_USERNAME})
-                </button>
-              </>
-            )}
           </div>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-medium text-neutral-700 block mb-1">
-                First Name
-              </label>
-              <input
-                type="text"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Elena"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B7B62]"
-              />
-            </div>
-            <div>
-              <label className="text-xs font-medium text-neutral-700 block mb-1">
-                Last Name
-              </label>
-              <input
-                type="text"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Rostova"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B7B62]"
-              />
-            </div>
-          </div>
-
+        {/* Form Inputs */}
+        <form onSubmit={handleSave} className="space-y-3">
           <div>
-            <label className="text-xs font-medium text-neutral-700 block mb-1">
-              {t.telegramUsername}
+            <label className="text-xs font-bold text-neutral-700 block mb-1">
+              Telegram Username *
             </label>
             <div className="relative">
-              <span className="absolute left-3.5 top-2.5 text-neutral-400 text-sm font-medium">
+              <span className="absolute left-3.5 top-2.5 text-neutral-400 text-xs font-mono font-medium">
                 @
               </span>
               <input
@@ -397,53 +331,91 @@ export const TelegramAuthModal: React.FC<Props> = ({
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="elena_art"
-                className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B7B62]"
+                placeholder="muxammadsiddiq_23"
+                className="w-full pl-8 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
               />
             </div>
-            {role === "admin" && !isEligibleForAdmin && (
-              <p className="text-[11px] text-amber-700 font-medium mt-1 flex items-center gap-1">
-                <Lock size={12} />
-                {lang === "ru"
-                  ? `Только @${ADMIN_TELEGRAM_USERNAME} может иметь статус администратора.`
-                  : `Only @${ADMIN_TELEGRAM_USERNAME} is authorized for the Admin account.`}
-              </p>
-            )}
           </div>
 
           <div>
-            <label className="text-xs font-medium text-neutral-700 block mb-1">
-              {t.location}
+            <label className="text-xs font-bold text-neutral-700 block mb-1">
+              Phone Number
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-2.5 text-neutral-400 text-xs">
+                <Phone size={13} />
+              </span>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="+998 90 123 45 67"
+                className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5">
+            <div>
+              <label className="text-xs font-bold text-neutral-700 block mb-1">
+                First Name *
+              </label>
+              <input
+                type="text"
+                required
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                placeholder="Muxammadsiddiq"
+                className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-neutral-700 block mb-1">
+                Last Name
+              </label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                placeholder="Admin"
+                className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-neutral-700 block mb-1">
+              Location
             </label>
             <input
               type="text"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="Tashkent, Uzbekistan"
-              className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B7B62]"
+              className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
             />
           </div>
 
           <div>
-            <label className="text-xs font-medium text-neutral-700 block mb-1">
-              {t.bio}
+            <label className="text-xs font-bold text-neutral-700 block mb-1">
+              Bio / Narrative
             </label>
             <textarea
               rows={2}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              placeholder={role === "artist" ? "Art style, inspirations and exhibitions..." : "Interests, preferred styles..."}
-              className="w-full px-3.5 py-2 rounded-xl bg-white border border-neutral-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#6B7B62] resize-none"
+              placeholder="Art style or collector preferences..."
+              className="w-full px-3 py-2 rounded-xl bg-white border border-neutral-200 text-xs focus:outline-none focus:ring-2 focus:ring-[#2AABEE] resize-none"
             />
           </div>
 
           <div className="pt-2">
             <button
               type="submit"
-              className="w-full py-3 bg-[#1A1A1A] hover:bg-black text-white font-bold rounded-2xl text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg"
+              className="w-full py-3 bg-[#1A1A1A] hover:bg-black text-white font-bold rounded-2xl text-xs uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg cursor-pointer"
             >
               <UserCheck size={16} />
-              {t.saveProfile}
+              <span>{t.saveProfile} & Launch</span>
             </button>
           </div>
         </form>

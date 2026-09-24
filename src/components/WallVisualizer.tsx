@@ -816,7 +816,7 @@ export const WallVisualizer: React.FC<Props> = ({
       {/* AR Transform & Angle Presets Bar - Automatically adjusts width & padding */}
       {isARMode && !isCapturing && (
         <div className="absolute top-14 sm:top-18 left-1/2 -translate-x-1/2 z-20 pointer-events-auto flex flex-col items-center gap-1.5 max-w-[96vw]">
-          <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-white/80 shadow-md flex items-center gap-0.5 sm:gap-1 max-w-full overflow-x-auto scrollbar-none">
+          <div className="bg-white/95 backdrop-blur-md p-1 rounded-2xl border border-white/80 shadow-md flex items-center gap-0.5 sm:gap-1 max-w-full overflow-x-auto no-scrollbar">
             {(["move", "rotate", "scale"] as const).map((mode) => (
               <button
                 key={mode}

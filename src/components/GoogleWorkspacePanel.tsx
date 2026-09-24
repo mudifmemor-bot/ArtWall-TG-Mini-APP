@@ -201,55 +201,55 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-[#E8E6E1] shadow-xs overflow-hidden">
+    <div className="w-full max-w-full bg-white rounded-3xl border border-[#E8E6E1] shadow-xs overflow-hidden mb-8">
       {/* Top Banner Header */}
-      <div className="p-6 sm:p-7 bg-gradient-to-r from-neutral-900 via-[#1E293B] to-[#0F172A] text-white">
+      <div className="p-4 sm:p-7 bg-gradient-to-r from-neutral-900 via-[#1E293B] to-[#0F172A] text-white">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-3.5 min-w-0">
             <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20 shrink-0">
               <Sparkles size={24} className="text-emerald-400" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-serif-custom text-xl sm:text-2xl font-light italic">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-serif-custom text-xl sm:text-2xl font-light italic truncate">
                   Google Workspace Cloud
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shrink-0">
                   Active
                 </span>
               </div>
-              <p className="text-xs text-neutral-300 font-light mt-0.5">
+              <p className="text-xs text-neutral-300 font-light mt-0.5 truncate">
                 Google Sheets for user data & Google Drive for high-res artwork storage
               </p>
             </div>
           </div>
 
           {/* Connection Status Pill / Button */}
-          <div>
+          <div className="shrink-0">
             {workspaceState.isConnected ? (
-              <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md border border-white/20 px-3.5 py-2 rounded-2xl">
+              <div className="flex items-center gap-2.5 bg-white/10 backdrop-blur-md border border-white/20 px-3.5 py-2 rounded-2xl max-w-full">
                 {workspaceState.userPicture ? (
                   <img
                     src={workspaceState.userPicture}
                     alt={workspaceState.userName || "Google User"}
-                    className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-400"
+                    className="w-7 h-7 rounded-full object-cover ring-2 ring-emerald-400 shrink-0"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-xs">
+                  <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center font-bold text-xs shrink-0">
                     {workspaceState.userName?.[0] || "G"}
                   </div>
                 )}
-                <div className="text-left leading-none">
-                  <span className="text-xs font-bold block truncate max-w-[140px]">
+                <div className="text-left leading-none min-w-0">
+                  <span className="text-xs font-bold block truncate max-w-[120px] sm:max-w-[140px]">
                     {workspaceState.userName || "Connected"}
                   </span>
-                  <span className="text-[10px] text-neutral-300 block truncate max-w-[140px] font-mono mt-0.5">
+                  <span className="text-[10px] text-neutral-300 block truncate max-w-[120px] sm:max-w-[140px] font-mono mt-0.5">
                     {workspaceState.userEmail || "Google Account"}
                   </span>
                 </div>
                 <button
                   onClick={handleDisconnect}
-                  className="text-[10px] text-red-300 hover:text-red-100 uppercase tracking-wider font-bold ml-2 underline cursor-pointer"
+                  className="text-[10px] text-red-300 hover:text-red-100 uppercase tracking-wider font-bold ml-2 underline cursor-pointer shrink-0"
                   title="Disconnect Google Account"
                 >
                   Disconnect
@@ -282,10 +282,10 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
         </div>
 
         {/* Navigation Filter Tabs */}
-        <div className="flex gap-2 mt-6 pt-4 border-t border-white/10">
+        <div className="w-full max-w-full flex items-center gap-1.5 sm:gap-2 mt-5 sm:mt-6 pt-3 sm:pt-4 border-t border-white/10 overflow-x-auto no-scrollbar touch-pan-x">
           <button
             onClick={() => setActiveTab("all")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all shrink-0 cursor-pointer ${
               activeTab === "all"
                 ? "bg-white text-neutral-900 font-bold"
                 : "text-neutral-300 hover:text-white hover:bg-white/10"
@@ -295,25 +295,25 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
           </button>
           <button
             onClick={() => setActiveTab("sheets")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
               activeTab === "sheets"
                 ? "bg-white text-neutral-900 font-bold"
                 : "text-neutral-300 hover:text-white hover:bg-white/10"
             }`}
           >
-            <FileSpreadsheet size={14} className="text-emerald-500" />
-            <span>Google Sheets (User Directory)</span>
+            <FileSpreadsheet size={14} className="text-emerald-500 shrink-0" />
+            <span>Google Sheets <span className="hidden sm:inline">(User Directory)</span></span>
           </button>
           <button
             onClick={() => setActiveTab("drive")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1.5 transition-all shrink-0 cursor-pointer ${
               activeTab === "drive"
                 ? "bg-white text-neutral-900 font-bold"
                 : "text-neutral-300 hover:text-white hover:bg-white/10"
             }`}
           >
-            <HardDrive size={14} className="text-blue-400" />
-            <span>Google Drive (Cloud Storage)</span>
+            <HardDrive size={14} className="text-blue-400 shrink-0" />
+            <span>Google Drive <span className="hidden sm:inline">(Cloud Storage)</span></span>
           </button>
         </div>
       </div>
@@ -345,12 +345,12 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
       )}
 
       {/* Main Content Area */}
-      <div className="p-6 sm:p-7 space-y-6">
+      <div className="p-3.5 sm:p-7 space-y-6">
         {/* =========================================================================
             SECTION 1: GOOGLE SHEETS USER DIRECTORY
            ========================================================================= */}
         {(activeTab === "all" || activeTab === "sheets") && (
-          <div className="rounded-2xl border border-neutral-200 p-5 sm:p-6 bg-neutral-50/70">
+          <div className="rounded-2xl border border-neutral-200 p-3.5 sm:p-6 bg-neutral-50/70">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-5">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 border border-emerald-200">
@@ -453,7 +453,7 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
             <div className="bg-white rounded-xl p-3 border border-neutral-200 text-xs">
               <div className="flex items-center justify-between text-[11px] text-neutral-500 font-semibold mb-2">
                 <span>Spreadsheet Columns:</span>
-                <span className="font-mono text-[10px] text-neutral-400">9 Schema Fields</span>
+                <span className="font-mono text-[10px] text-neutral-400">10 Schema Fields</span>
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {[
@@ -461,6 +461,7 @@ export const GoogleWorkspacePanel: React.FC<Props> = ({
                   "First Name",
                   "Last Name",
                   "Telegram Username",
+                  "Phone Number",
                   "Platform Role",
                   "Location",
                   "Bio / Description",

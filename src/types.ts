@@ -57,6 +57,7 @@ declare global {
         };
         openTelegramLink?: (url: string) => void;
         openLink?: (url: string) => void;
+        requestContact?: (callback: (shared: boolean, result?: { response?: string; status?: string; auth_date?: number }) => void) => void;
       };
     };
   }
@@ -71,29 +72,36 @@ export function getRealTelegramUser(): TelegramWebAppUser | null {
 
 export function isRealTelegramAdmin(): boolean {
   const realTg = getRealTelegramUser();
-  if (realTg) {
-    const realUsername = (realTg.username || "").replace(/^@/, "").trim().toLowerCase();
+  if (realTg?.username) {
+    const realUsername = realTg.username.replace(/^@/, "").trim().toLowerCase();
     return realUsername === ADMIN_TELEGRAM_USERNAME.toLowerCase();
   }
   return false;
 }
 
-export function isAuthorizedAdmin(userOrUsername?: string | { username?: string; role?: UserRole } | null): boolean {
-  // If running inside Telegram WebApp, enforce verification against the real Telegram user
-  const realTg = getRealTelegramUser();
-  if (realTg) {
-    const realUsername = (realTg.username || "").replace(/^@/, "").trim().toLowerCase();
-    if (realUsername !== ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
-      return false;
+export function isAuthorizedAdmin(userOrUsername?: string | { username?: string; role?: UserRole; id?: number } | null): boolean {
+  if (!userOrUsername) {
+    const realTg = getRealTelegramUser();
+    if (realTg?.username) {
+      return realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase();
     }
+    return false;
   }
 
-  if (!userOrUsername) return false;
   const username = typeof userOrUsername === "string"
     ? userOrUsername
     : userOrUsername.username || "";
   const normalized = username.replace(/^@/, "").trim().toLowerCase();
-  return normalized === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+  if (normalized === ADMIN_TELEGRAM_USERNAME.toLowerCase()) {
+    return true;
+  }
+
+  const realTg = getRealTelegramUser();
+  if (realTg?.username) {
+    return realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+  }
+
+  return false;
 }
 
 export interface TelegramUser {
@@ -101,11 +109,13 @@ export interface TelegramUser {
   first_name: string;
   last_name?: string;
   username?: string;
+  phone_number?: string;
   photo_url?: string;
   role: UserRole;
   bio?: string;
   location?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export function formatUZS(price: number): string {
