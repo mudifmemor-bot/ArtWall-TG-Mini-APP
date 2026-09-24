@@ -145,7 +145,7 @@ export const AdminDashboard: React.FC<Props> = ({
   };
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-clip animate-in fade-in duration-300">
       {/* Header Banner */}
       <div className="bg-[#1A1A1A] text-white rounded-3xl p-5 sm:p-8 shadow-xl mb-6 sm:mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sm:gap-6 border border-white/10">
         <div className="min-w-0 max-w-full">

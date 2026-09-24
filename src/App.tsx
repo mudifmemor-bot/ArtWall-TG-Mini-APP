@@ -438,6 +438,9 @@ export default function App() {
       tg.ready();
       tg.expand();
       tg.setHeaderColor("#F9F8F6");
+      if (typeof tg.disableVerticalSwipes === "function") {
+        tg.disableVerticalSwipes();
+      }
 
       // Auto-extract user from Telegram WebApp if available
       if (tg.initDataUnsafe?.user && !user) {
@@ -743,7 +746,7 @@ export default function App() {
   }, [currentRole, currentTab]);
 
   return (
-    <div className="min-h-screen w-full max-w-full overflow-x-hidden bg-[#F9F8F6] text-[#1A1A1A] font-sans flex flex-col">
+    <div className="min-h-screen w-full max-w-full overflow-x-clip bg-[#F9F8F6] text-[#1A1A1A] font-sans flex flex-col">
       {/* Top Navbar */}
       <Navbar
         currentTab={currentTab}
@@ -767,7 +770,7 @@ export default function App() {
       />
 
       {/* Main Window Content */}
-      <main className={`flex-1 w-full max-w-full relative ${currentTab === "visualizer" ? "pb-0 overflow-hidden" : "pb-24 md:pb-8 overflow-x-hidden"}`}>
+      <main className={`flex-1 w-full max-w-full relative ${currentTab === "visualizer" ? "pb-0 overflow-hidden" : "pb-24 md:pb-8 overflow-x-clip"}`}>
         {/* ==================== PROFILE VIEW (Accessible across all roles) ==================== */}
         {currentTab === "profile" && (
           <ProfileView

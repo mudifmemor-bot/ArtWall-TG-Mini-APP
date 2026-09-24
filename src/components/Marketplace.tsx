@@ -80,7 +80,7 @@ export const Marketplace: React.FC<Props> = ({
   }, [artworks, selectedCategory, searchTerm, sortBy]);
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-hidden animate-in fade-in duration-300">
+    <div className="w-full max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-8 overflow-x-clip animate-in fade-in duration-300">
       {/* Hero Header */}
       <div className="mb-6 sm:mb-8 text-center sm:text-left flex flex-col sm:flex-row sm:items-end justify-between gap-4 border-b border-[#E8E6E1] pb-6">
         <div>

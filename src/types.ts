@@ -45,6 +45,8 @@ declare global {
         close: () => void;
         setHeaderColor: (color: string) => void;
         setBackgroundColor: (color: string) => void;
+        disableVerticalSwipes?: () => void;
+        enableVerticalSwipes?: () => void;
         HapticFeedback?: {
           impactOccurred: (style: "light" | "medium" | "heavy" | "rigid" | "soft") => void;
           notificationOccurred: (type: "error" | "success" | "warning") => void;
