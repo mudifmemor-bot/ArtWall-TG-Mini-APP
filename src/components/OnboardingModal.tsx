@@ -86,14 +86,18 @@ export const OnboardingModal: React.FC<Props> = ({
     cleanUsername === ADMIN_TELEGRAM_USERNAME.toLowerCase() ||
     Boolean(realTg?.username && realTg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase());
 
+  // Phone validation check: valid if user shared contact OR typed in >= 7 digits
+  const hasValidPhone = Boolean(phoneNumber && phoneNumber.trim().replace(/\D/g, "").length >= 7);
+  const isPhoneVerified = contactShared || hasValidPhone;
+
   // If user enters muxammadsiddiq_23, auto-suggest or switch to Admin
   useEffect(() => {
     if (isMuxammadSiddiq && selectedRole !== "admin") {
       setSelectedRole("admin");
-      if (!firstName || firstName === "Alex" || firstName === "Elena") {
+      if (!firstName) {
         setFirstName("Muxammadsiddiq");
       }
-      if (!bio || bio.includes("exploring")) {
+      if (!bio) {
         setBio("Art Wall platform founder, curation & analytics.");
       }
     }
@@ -112,36 +116,45 @@ export const OnboardingModal: React.FC<Props> = ({
           setIsRequestingContact(false);
           if (shared) {
             setContactShared(true);
-            const contactData = result?.response || result || {};
-            if (contactData.phone_number) {
-              const formattedPhone = contactData.phone_number.startsWith("+")
-                ? contactData.phone_number
-                : `+${contactData.phone_number}`;
+            const contactData =
+              result?.responseUnsafe?.contact ||
+              result?.response?.contact ||
+              result?.contact ||
+              result?.response ||
+              result ||
+              {};
+            const phone = contactData.phone_number || contactData.phone || "";
+            if (phone) {
+              const formattedPhone = phone.startsWith("+") ? phone : `+${phone}`;
               setPhoneNumber(formattedPhone);
             }
-            if (contactData.first_name) setFirstName(contactData.first_name);
-            if (contactData.last_name) setLastName(contactData.last_name);
+            if (contactData.first_name && !firstName) setFirstName(contactData.first_name);
+            if (contactData.last_name && !lastName) setLastName(contactData.last_name);
 
             if (window.Telegram?.WebApp?.HapticFeedback) {
               window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
             }
             setContactNotice("✓ Contact successfully shared and verified via Telegram WebApp!");
           } else {
-            setContactShared(false);
-            if (window.Telegram?.WebApp?.HapticFeedback) {
-              window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
+            if (phoneNumber.trim().replace(/\D/g, "").length >= 7) {
+              setContactShared(true);
+              setContactNotice("✓ Phone number recorded.");
+            } else {
+              setContactNotice("Please enter your phone number below to proceed.");
             }
-            setContactNotice("⚠️ Contact sharing was not granted. Sharing contact is mandatory before you can complete onboarding.");
           }
         });
       } catch (err: any) {
         setIsRequestingContact(false);
         console.warn("Telegram WebApp.requestContact error:", err);
-        setContactNotice("⚠️ Telegram contact sharing failed. Please try again.");
+        if (phoneNumber.trim().replace(/\D/g, "").length >= 7) {
+          setContactShared(true);
+        } else {
+          setContactNotice("Please enter your phone number below to proceed.");
+        }
       }
     } else {
       // In dev preview or web browser without native Telegram client bridge:
-      // Provide simulated Telegram WebApp.requestContact response for seamless testing
       setTimeout(() => {
         setIsRequestingContact(false);
         setContactShared(true);
@@ -151,22 +164,21 @@ export const OnboardingModal: React.FC<Props> = ({
         if (window.Telegram?.WebApp?.HapticFeedback) {
           window.Telegram.WebApp.HapticFeedback.notificationOccurred("success");
         }
-        setContactNotice("✓ Contact shared & verified via Telegram WebApp!");
-      }, 400);
+        setContactNotice("✓ Contact verified!");
+      }, 300);
     }
   };
 
   const handleApplyMuxammadSiddiq = () => {
     setUsername(ADMIN_TELEGRAM_USERNAME);
-    setFirstName("Muxammadsiddiq");
-    setLastName("Admin");
+    if (!firstName) setFirstName("Muxammadsiddiq");
+    if (!lastName) setLastName("Admin");
     setSelectedRole("admin");
     if (!phoneNumber) setPhoneNumber("+998 90 123 45 67");
     setBio("Art Wall platform founder, curation & analytics.");
     setLocation("HQ Tashkent, Uzbekistan");
-    if (!contactShared) {
-      setContactNotice("Identified as @muxammadsiddiq_23. Tap 'Share Contact' to verify and complete onboarding.");
-    }
+    setContactShared(true);
+    setContactNotice("Identified as @muxammadsiddiq_23.");
 
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred("medium");
@@ -174,32 +186,20 @@ export const OnboardingModal: React.FC<Props> = ({
   };
 
   const handleApplyArtist = () => {
-    setUsername(username || "elena_art_studio");
-    if (firstName === "Muxammadsiddiq") setFirstName("Elena");
     setSelectedRole("artist");
-    if (!phoneNumber) setPhoneNumber("+998 93 555 44 33");
-    setBio("Contemporary mixed media artist creating spatial dialogue through texture and light.");
-    setLocation("Studio 4B, Tashkent");
-    if (!contactShared) {
-      setContactNotice("Artist profile selected. Tap 'Share Contact' to verify and complete onboarding.");
+    if (!bio) {
+      setBio("Contemporary mixed media artist creating spatial dialogue through texture and light.");
     }
-
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
     }
   };
 
   const handleApplyBuyer = () => {
-    setUsername(username || "art_collector");
-    if (firstName === "Muxammadsiddiq") setFirstName("Damir");
     setSelectedRole("buyer");
-    if (!phoneNumber) setPhoneNumber("+998 97 777 88 99");
-    setBio("Curating modern minimal interior pieces for private collections.");
-    setLocation("Tashkent, Uzbekistan");
-    if (!contactShared) {
-      setContactNotice("Buyer profile selected. Tap 'Share Contact' to verify and complete onboarding.");
+    if (!bio) {
+      setBio("Curating modern minimal interior pieces for private collections.");
     }
-
     if (window.Telegram?.WebApp?.HapticFeedback) {
       window.Telegram.WebApp.HapticFeedback.impactOccurred("light");
     }
@@ -208,8 +208,8 @@ export const OnboardingModal: React.FC<Props> = ({
   const handleFinishLaunch = (e?: React.FormEvent) => {
     if (e) e.preventDefault();
 
-    if (!contactShared) {
-      setContactNotice("⚠️ Sharing your contact via Telegram is mandatory before completing onboarding.");
+    if (!isPhoneVerified) {
+      setContactNotice("⚠️ Please enter a phone number or share contact via Telegram.");
       if (window.Telegram?.WebApp?.HapticFeedback) {
         window.Telegram.WebApp.HapticFeedback.notificationOccurred("error");
       }
@@ -498,7 +498,7 @@ export const OnboardingModal: React.FC<Props> = ({
 
               <div>
                 <label className="text-xs font-bold text-neutral-700 block mb-1">
-                  Phone Number {contactShared && <span className="text-emerald-600 font-normal">(Verified via Telegram)</span>}
+                  Phone Number {isPhoneVerified && <span className="text-emerald-600 font-normal">(Verified)</span>}
                 </label>
                 <div className="relative">
                   <span className="absolute left-3.5 top-2.5 text-neutral-400 text-xs">
@@ -507,7 +507,12 @@ export const OnboardingModal: React.FC<Props> = ({
                   <input
                     type="tel"
                     value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    onChange={(e) => {
+                      setPhoneNumber(e.target.value);
+                      if (e.target.value.trim().replace(/\D/g, "").length >= 7) {
+                        setContactShared(true);
+                      }
+                    }}
                     placeholder="+998 90 123 45 67"
                     className="w-full pl-9 pr-3.5 py-2.5 rounded-xl bg-white border border-neutral-200 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#2AABEE]"
                   />
@@ -548,8 +553,8 @@ export const OnboardingModal: React.FC<Props> = ({
               <button
                 type="button"
                 onClick={() => {
-                  if (!contactShared) {
-                    setContactNotice("⚠️ Sharing your contact via Telegram is mandatory before you can continue.");
+                  if (!isPhoneVerified) {
+                    setContactNotice("⚠️ Please enter a phone number or click 'Share Contact' to continue.");
                     if (window.Telegram?.WebApp?.HapticFeedback) {
                       window.Telegram.WebApp.HapticFeedback.notificationOccurred("warning");
                     }
@@ -557,9 +562,9 @@ export const OnboardingModal: React.FC<Props> = ({
                   }
                   setStep("profile");
                 }}
-                disabled={!contactShared}
+                disabled={!isPhoneVerified}
                 className={`w-full py-3.5 px-4 rounded-2xl text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2 shadow-lg transition-all ${
-                  contactShared
+                  isPhoneVerified
                     ? "bg-[#1A1A1A] hover:bg-black text-white cursor-pointer"
                     : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300"
                 }`}
@@ -567,9 +572,9 @@ export const OnboardingModal: React.FC<Props> = ({
                 <span>Continue to Role & App Setup</span>
                 <ArrowRight size={14} />
               </button>
-              {!contactShared && (
+              {!isPhoneVerified && (
                 <p className="text-[11px] text-amber-800 text-center font-medium">
-                  ⚠️ Click "Share Contact" above to unlock onboarding
+                  ⚠️ Click "Share Contact" or enter your phone number to unlock onboarding
                 </p>
               )}
             </div>
@@ -734,11 +739,11 @@ export const OnboardingModal: React.FC<Props> = ({
 
             {/* Complete Onboarding Button */}
             <div className="pt-2 space-y-2.5">
-              {!contactShared && (
+              {!isPhoneVerified && (
                 <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-950 text-xs flex items-center justify-between gap-2.5 animate-in fade-in">
                   <div className="flex items-center gap-2 min-w-0">
                     <Info size={16} className="text-amber-600 shrink-0" />
-                    <span className="font-medium truncate">Telegram contact sharing is mandatory.</span>
+                    <span className="font-medium truncate">Telegram contact or phone number required.</span>
                   </div>
                   <button
                     type="button"
@@ -754,28 +759,28 @@ export const OnboardingModal: React.FC<Props> = ({
               <button
                 type="submit"
                 id="complete-onboarding-btn"
-                disabled={!contactShared || isRequestingContact}
+                disabled={!isPhoneVerified || isRequestingContact}
                 className={`w-full py-3.5 px-4 rounded-2xl font-bold text-xs uppercase tracking-widest flex items-center justify-center gap-2 shadow-xl transition-all ${
-                  contactShared && !isRequestingContact
+                  isPhoneVerified && !isRequestingContact
                     ? "bg-gradient-to-r from-[#1A1A1A] to-neutral-800 hover:from-black hover:to-neutral-900 text-white cursor-pointer shadow-black/20 active:scale-[0.99]"
                     : "bg-neutral-200 text-neutral-400 cursor-not-allowed border border-neutral-300"
                 }`}
               >
-                <Sparkles size={16} className={contactShared ? "text-amber-300" : "text-neutral-400"} />
+                <Sparkles size={16} className={isPhoneVerified ? "text-amber-300" : "text-neutral-400"} />
                 <span>
-                  {contactShared
+                  {isPhoneVerified
                     ? selectedRole === "admin"
                       ? "Complete Onboarding & Launch Admin HQ →"
                       : selectedRole === "artist"
                       ? "Complete Onboarding & Launch Studio →"
                       : "Complete Onboarding →"
-                    : "Complete Onboarding (Share Contact Required)"}
+                    : "Complete Onboarding (Phone Number Required)"}
                 </span>
               </button>
 
-              {!contactShared && (
+              {!isPhoneVerified && (
                 <p className="text-[11px] text-amber-800 text-center font-medium">
-                  ⚠️ Sharing contact via Telegram WebApp is required before clicking Complete Onboarding.
+                  ⚠️ Please enter your phone number or click "Share Contact" before clicking Complete Onboarding.
                 </p>
               )}
             </div>

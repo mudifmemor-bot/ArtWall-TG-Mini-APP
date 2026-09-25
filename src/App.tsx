@@ -33,19 +33,14 @@ import { autoSyncUsersToGoogleSheetIfConnected } from "./services/googleWorkspac
 
 const isMockUser = (u: any): boolean => {
   if (!u) return false;
+  // Strictly filter only legacy fixed mock IDs (from older versions)
   return (
     u.id === 101 ||
     u.id === 102 ||
     u.id === 103 ||
     u.id === 201 ||
     u.id === 202 ||
-    u.id === 203 ||
-    u.username === "elena_art_studio" ||
-    u.username === "aziz_samarkand_art" ||
-    u.username === "voronin_m_art" ||
-    u.username === "rustam_collector" ||
-    u.username === "daria_artlover" ||
-    u.username === "farrukh_interior"
+    u.id === 203
   );
 };
 
@@ -131,54 +126,6 @@ export default function App() {
     localStorage.setItem("artwall_lang", lang);
   }, [lang]);
 
-  useEffect(() => {
-    localStorage.setItem("artwall_users_directory", JSON.stringify(usersDirectory));
-  }, [usersDirectory]);
-
-  // Live Server Data Synchronization: Fetch real registered users and community artworks
-  useEffect(() => {
-    let isMounted = true;
-
-    const syncWithServer = async () => {
-      try {
-        const [serverUsers, serverArtworks] = await Promise.all([
-          fetchRegisteredUsers(),
-          fetchServerArtworks(),
-        ]);
-
-        if (!isMounted) return;
-
-        if (Array.isArray(serverUsers)) {
-          // Strictly take the real registered users from the server (filter any mock users)
-          const realUsers = serverUsers.filter((u) => !isMockUser(u));
-          setUsersDirectory(realUsers);
-          localStorage.setItem("artwall_users_directory", JSON.stringify(realUsers));
-        }
-
-        if (serverArtworks && serverArtworks.length > 0) {
-          setArtworks((prev) => {
-            const existingIds = new Set(prev.map((a) => a.id));
-            const newWorks = serverArtworks.filter((a) => !existingIds.has(a.id));
-            if (newWorks.length === 0) return prev;
-            return [...newWorks, ...prev];
-          });
-        }
-      } catch (err) {
-        console.warn("Background server sync skipped:", err);
-      }
-    };
-
-    // Initial sync
-    syncWithServer();
-
-    // Poll every 8 seconds for live updates from other devices / users
-    const timer = setInterval(syncWithServer, 8000);
-    return () => {
-      isMounted = false;
-      clearInterval(timer);
-    };
-  }, []);
-
   // Current Telegram User Authentication & Profile
   // CRITICAL CONSTRAINT: Only @muxammadsiddiq_23 is accessible for admin account;
   // all other accounts can only be either artist or buyer.
@@ -200,8 +147,84 @@ export default function App() {
     } catch (e) {
       console.error(e);
     }
+
+    // Check if Telegram native WebApp user exists
+    const tg = typeof window !== "undefined" ? window.Telegram?.WebApp?.initDataUnsafe?.user : null;
+    if (tg) {
+      const isTgAdmin =
+        tg.username && tg.username.replace(/^@/, "").trim().toLowerCase() === ADMIN_TELEGRAM_USERNAME.toLowerCase();
+      const detectedUser: TelegramUser = {
+        id: tg.id,
+        first_name: tg.first_name || "User",
+        last_name: tg.last_name || undefined,
+        username: tg.username || undefined,
+        photo_url: tg.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(tg.first_name || "TG")}&background=2AABEE&color=ffffff&size=200&bold=true`,
+        role: isTgAdmin ? "admin" : "buyer",
+        createdAt: new Date().toISOString(),
+      };
+      return detectedUser;
+    }
     return null;
   });
+
+  useEffect(() => {
+    localStorage.setItem("artwall_users_directory", JSON.stringify(usersDirectory));
+  }, [usersDirectory]);
+
+  // Live Server Data Synchronization: Fetch real registered users and community artworks
+  useEffect(() => {
+    let isMounted = true;
+
+    const syncWithServer = async () => {
+      try {
+        const [serverUsers, serverArtworks] = await Promise.all([
+          fetchRegisteredUsers(),
+          fetchServerArtworks(),
+        ]);
+
+        if (!isMounted) return;
+
+        if (Array.isArray(serverUsers)) {
+          // Strictly take the real registered users from the server (filter any mock users)
+          const realUsers = serverUsers.filter((u) => !isMockUser(u));
+
+          // Merge current user if valid
+          let mergedUsers = [...realUsers];
+          if (user && !isMockUser(user)) {
+            const exists = realUsers.some((u) => String(u.id) === String(user.id));
+            if (!exists) {
+              mergedUsers = [user, ...realUsers];
+              registerOrUpdateUser(user).catch(console.warn);
+            }
+          }
+
+          setUsersDirectory(mergedUsers);
+          localStorage.setItem("artwall_users_directory", JSON.stringify(mergedUsers));
+        }
+
+        if (serverArtworks && serverArtworks.length > 0) {
+          setArtworks((prev) => {
+            const existingIds = new Set(prev.map((a) => a.id));
+            const newWorks = serverArtworks.filter((a) => !existingIds.has(a.id));
+            if (newWorks.length === 0) return prev;
+            return [...newWorks, ...prev];
+          });
+        }
+      } catch (err) {
+        console.warn("Background server sync skipped:", err);
+      }
+    };
+
+    // Initial sync
+    syncWithServer();
+
+    // Poll every 5 seconds for live updates from other devices / users
+    const timer = setInterval(syncWithServer, 5000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [user]);
 
   // Strict route protection: redirect away from admin if user is not authorized
   useEffect(() => {
@@ -211,8 +234,10 @@ export default function App() {
   }, [currentTab, user]);
 
   useEffect(() => {
-    if (user) {
+    if (user && !isMockUser(user)) {
       localStorage.setItem("artwall_user", JSON.stringify(user));
+      // Auto-register to server database so Admin sees the user!
+      registerOrUpdateUser(user).catch(console.warn);
     }
   }, [user]);
 
@@ -449,36 +474,41 @@ export default function App() {
     localStorage.setItem("artwall_user", JSON.stringify(sanitizedUser));
 
     // 1. Immediately persist to server so all devices & admin see the user!
-    registerOrUpdateUser(sanitizedUser).catch((err) =>
-      console.warn("Failed to register user to server:", err)
-    );
+    try {
+      await registerOrUpdateUser(sanitizedUser);
+    } catch (err) {
+      console.warn("Failed to register user to server:", err);
+    }
 
-    // 2. Add to users directory state & local cache
-    setUsersDirectory((prev) => {
-      const cleanUsername = sanitizedUser.username ? sanitizedUser.username.replace(/^@/, "").trim().toLowerCase() : "";
-      const exists = prev.find(
-        (u) =>
-          u.id === sanitizedUser.id ||
-          (cleanUsername && u.username && u.username.replace(/^@/, "").trim().toLowerCase() === cleanUsername)
-      );
-      const next = exists
-        ? prev.map((u) => {
-            const uClean = u.username ? u.username.replace(/^@/, "").trim().toLowerCase() : "";
-            return u.id === sanitizedUser.id || (cleanUsername && uClean === cleanUsername)
-              ? { ...u, ...sanitizedUser }
-              : u;
-          })
-        : [sanitizedUser, ...prev];
-
-      localStorage.setItem("artwall_users_directory", JSON.stringify(next));
-
-      // 3. Auto-sync to Google Sheet if Google Workspace is connected
-      autoSyncUsersToGoogleSheetIfConnected(next).catch((err) =>
-        console.warn("Google Sheet auto-sync error:", err)
-      );
-
-      return next;
-    });
+    // 2. Fetch fresh users directory from server
+    try {
+      const freshUsers = await fetchRegisteredUsers();
+      if (Array.isArray(freshUsers) && freshUsers.length > 0) {
+        const realUsers = freshUsers.filter((u) => !isMockUser(u));
+        setUsersDirectory(realUsers);
+        localStorage.setItem("artwall_users_directory", JSON.stringify(realUsers));
+        autoSyncUsersToGoogleSheetIfConnected(realUsers).catch(console.warn);
+      } else {
+        setUsersDirectory((prev) => {
+          const exists = prev.find((u) => String(u.id) === String(sanitizedUser.id));
+          const next = exists
+            ? prev.map((u) => (String(u.id) === String(sanitizedUser.id) ? sanitizedUser : u))
+            : [sanitizedUser, ...prev];
+          localStorage.setItem("artwall_users_directory", JSON.stringify(next));
+          autoSyncUsersToGoogleSheetIfConnected(next).catch(console.warn);
+          return next;
+        });
+      }
+    } catch {
+      setUsersDirectory((prev) => {
+        const exists = prev.find((u) => String(u.id) === String(sanitizedUser.id));
+        const next = exists
+          ? prev.map((u) => (String(u.id) === String(sanitizedUser.id) ? sanitizedUser : u))
+          : [sanitizedUser, ...prev];
+        localStorage.setItem("artwall_users_directory", JSON.stringify(next));
+        return next;
+      });
+    }
 
     // Navigate to role-specific starting view
     if (sanitizedUser.role === "artist") {
@@ -825,6 +855,10 @@ export default function App() {
                 lang={lang}
                 onViewOnWall={(art) => handleViewOnWall(art)}
                 onViewProfile={handleViewUserProfile}
+                onUpdateUsers={(updated) => {
+                  setUsersDirectory(updated);
+                  localStorage.setItem("artwall_users_directory", JSON.stringify(updated));
+                }}
               />
             )}
 

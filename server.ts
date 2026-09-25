@@ -104,10 +104,16 @@ app.post("/api/users", (req: Request, res: Response) => {
 
     const users = readUsers();
     const cleanUsername = incoming.username ? incoming.username.replace(/^@/, "").trim().toLowerCase() : "";
+    const cleanPhone = incoming.phone_number ? incoming.phone_number.replace(/\D/g, "") : "";
 
     const existingIndex = users.findIndex((u) => {
       const uUsername = u.username ? u.username.replace(/^@/, "").trim().toLowerCase() : "";
-      return u.id === incoming.id || (cleanUsername && uUsername === cleanUsername);
+      const uPhone = u.phone_number ? u.phone_number.replace(/\D/g, "") : "";
+      return (
+        String(u.id) === String(incoming.id) ||
+        (cleanUsername && uUsername === cleanUsername) ||
+        (cleanPhone && uPhone && cleanPhone === uPhone)
+      );
     });
 
     const userWithTimestamp = {
@@ -127,6 +133,7 @@ app.post("/api/users", (req: Request, res: Response) => {
     }
 
     writeUsers(users);
+    console.log(`[API] Saved user: ${userWithTimestamp.first_name} (@${userWithTimestamp.username || userWithTimestamp.id}), role: ${userWithTimestamp.role}, total users: ${users.length}`);
     res.json({
       success: true,
       user: userWithTimestamp,

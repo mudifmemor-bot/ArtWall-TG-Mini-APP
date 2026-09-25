@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   BarChart3,
   Users,
@@ -60,6 +60,28 @@ export const AdminDashboard: React.FC<Props> = ({
   const [userRoleFilter, setUserRoleFilter] = useState<"all" | "artist" | "buyer" | "admin">("all");
   const [isRefreshingUsers, setIsRefreshingUsers] = useState(false);
   const [copiedPhone, setCopiedPhone] = useState<string | null>(null);
+
+  // Active polling of registered users while Admin is viewing dashboard
+  useEffect(() => {
+    let isMounted = true;
+    const pollUsers = async () => {
+      try {
+        const fresh = await fetchRegisteredUsers();
+        if (isMounted && Array.isArray(fresh) && onUpdateUsers) {
+          onUpdateUsers(fresh);
+        }
+      } catch (err) {
+        // silent fail on network fluctuation
+      }
+    };
+
+    pollUsers();
+    const interval = setInterval(pollUsers, 3000);
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [onUpdateUsers]);
 
   const handleManualRefreshUsers = async () => {
     setIsRefreshingUsers(true);
